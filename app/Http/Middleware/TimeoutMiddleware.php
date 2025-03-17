@@ -29,7 +29,7 @@ class TimeoutMiddleware
                 Session::invalidate();
                 Session::regenerateToken();
 
-                return redirect()->route('auth.admin')->with('error', 'Bạn đã bị logout do không hoạt động.');
+                return redirect()->route('auth.admin')->with('error', 'Timeout');
             }
         }
 

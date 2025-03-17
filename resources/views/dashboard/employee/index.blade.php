@@ -1,5 +1,5 @@
 <div class="container mt-5">
-    <h2 class="mb-4">Tìm Kiếm Employee</h2>
+    <h2 class="mb-4">Employee - Search</h2>
     @if (session('error'))
         <div class="alert alert-danger">
             {{ session('error') }}
@@ -13,28 +13,29 @@
     <!-- Form tìm kiếm -->
     <form action="{{ route('employee.index') }}" method="GET" class="mb-3">
         <div class="col-md-4">
-            <label for="name" class="form-label">Tên người dùng:</label>
-            <input type="text" class="form-control" id="name" name="name" placeholder="Nhập tên người dùng"
-                value="{{ old('name') }}">
+            <label for="name" class="form-label">Name:</label>
+            <input type="text" class="form-control" id="name" name="name" placeholder="Name" value="{{ old('name') }}">
         </div>
         <div class="col-md-4">
             <label for="email" class="form-label">Email:</label>
-            <input type="text" class="form-control" id="email" name="email" placeholder="Nhập email"
+            <input type="text" class="form-control" id="email" name="email" placeholder="Email"
                 value="{{ old('email') }}">
         </div>
         <label class="form-label" for="team">Team:</label><br>
         <select class="form-control w-25" id="team" name="team_id">
             <option value="{{ 0 }}">{{ '' }}</option>
-            @foreach ($employees as $team)
+            @foreach ($teams as $team)
                 <option value="{{ $team->id }}">{{ $team->name }}</option>
             @endforeach
         </select>
-        <div class="col-md-4 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary me-2">Tìm kiếm</button>
+        <div class="d-flex justify-content-between mt-3 w-100">
+            <button type="submit" class="btn btn-primary me-2">Search</button>
+
+            <a href="{{ route('employee.index') }}" class="btn btn-secondary">Reset</a>
         </div>
     </form>
     <!-- Hiển thị kết quả tìm kiếm -->
-    <h3>Kết quả tìm kiếm:</h3>
+    <h3>Search result:</h3>
     @if($employees->isNotEmpty())
 
         @php
@@ -82,84 +83,91 @@
                         {{ $employee->email }}
                     </td>
                     <td>
-                        <a href="{{ route('employee.edit', $employee->id) }}" class="btn btn-warning btn-sm">Sửa</a>
+                        <a href="{{ route('employee.edit', $employee->id) }}" class="btn btn-warning btn-sm">Edit</a>
                         <form method="POST" action="{{ route('employee.delete', $employee->id) }}"
                             style="display:inline-block;">
                             @csrf
-                            <button type="submit" class="btn btn-danger btn-sm"
-                                onclick="return confirm('Bạn có chắc chắn muốn xóa?');">
-                                Xóa
+                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal"
+                                data-bs-target="#confirmModal">
+                                Delete
                             </button>
+                            @include('dashboard.component.confirm-modal')
                         </form>
                     </td>
                 </tr>
             @endforeach
         </table>
 
-        <ul class="pagination">
-            {{-- Nút First --}}
-            @if ($employees->currentPage() > 1)
-                <li class="page-item">
-                    <a class="page-link" href="{{ $employees->url(1) }}">First</a>
-                </li>
-            @else
-                <li class="page-item disabled">
-                    <a class="page-link">First</a>
-                </li>
-            @endif
+        @if ($employees->hasPages())
 
-            {{-- Nút Prev --}}
-            @if($employees->onFirstPage())
-                <li class="page-item disabled">
-                    <a class="page-link">Prev</a>
-                </li>
-            @else
-                <li class="page-item">
-                    <a class="page-link" href="{{ $employees->previousPageUrl() }}">Prev</a>
-                </li>
-            @endif
+            <ul class="pagination">
+                {{-- Nút First --}}
+                @if ($employees->currentPage() > 1)
+                    <li class="page-item">
+                        <a class="page-link" href="{{ $employees->url(1) }}">First</a>
+                    </li>
+                @else
+                    <li class="page-item disabled">
+                        <a class="page-link">First</a>
+                    </li>
+                @endif
 
-            {{-- Các trang số --}}
-            @for ($i = 1; $i <= $employees->lastPage(); $i++)
-                @if ($i == $employees->currentPage())
-                    <li class="page-item active">
-                        <span class="page-link">{{ $i }}</span>
+                {{-- Nút Prev --}}
+                @if($employees->onFirstPage())
+                    <li class="page-item disabled">
+                        <a class="page-link">Prev</a>
                     </li>
                 @else
                     <li class="page-item">
-                        <a class="page-link" href="{{ $employees->url($i) }}">{{ $i }}</a>
+                        <a class="page-link" href="{{ $employees->previousPageUrl() }}">Prev</a>
                     </li>
                 @endif
-            @endfor
 
-            {{-- Nút Next --}}
-            @if ($employees->hasMorePages())
-                <li class="page-item">
-                    <a class="page-link" href="{{ $employees->nextPageUrl() }}">Next</a>
-                </li>
-            @else
-                <li class="page-item disabled">
-                    <a class="page-link">Next</a>
-                </li>
-            @endif
+                {{-- Các trang số --}}
+                @for ($i = 1; $i <= $employees->lastPage(); $i++)
+                    @if ($i == $employees->currentPage())
+                        <li class="page-item active">
+                            <span class="page-link">{{ $i }}</span>
+                        </li>
+                    @else
+                        <li class="page-item">
+                            <a class="page-link" href="{{ $employees->url($i) }}">{{ $i }}</a>
+                        </li>
+                    @endif
+                @endfor
 
-            {{-- Nút Last --}}
-            @if ($employees->currentPage() < $employees->lastPage())
-                <li class="page-item">
-                    <a class="page-link" href="{{ $employees->url($employees->lastPage()) }}">Last</a>
-                </li>
-            @else
-                <li class="page-item disabled">
-                    <a class="page-link">Last</a>
-                </li>
-            @endif
-        </ul>
+                {{-- Nút Next --}}
+                @if ($employees->hasMorePages())
+                    <li class="page-item">
+                        <a class="page-link" href="{{ $employees->nextPageUrl() }}">Next</a>
+                    </li>
+                @else
+                    <li class="page-item disabled">
+                        <a class="page-link">Next</a>
+                    </li>
+                @endif
+
+                {{-- Nút Last --}}
+                @if ($employees->currentPage() < $employees->lastPage())
+                    <li class="page-item">
+                        <a class="page-link" href="{{ $employees->url($employees->lastPage()) }}">Last</a>
+                    </li>
+                @else
+                    <li class="page-item disabled">
+                        <a class="page-link">Last</a>
+                    </li>
+                @endif
+            </ul>
+        @endif
     @else
         <table class="table table-bordered">
             <thead class="table-dark">
                 <tr>
                     <th>ID</th>
-                    <th>Tên Employee</th>
+                    <th>Avatar</th>
+                    <th>Team</th>
+                    <th>Name</th>
+                    <th>Email</th>
                     <th>Action</th>
                 </tr>
             </thead>

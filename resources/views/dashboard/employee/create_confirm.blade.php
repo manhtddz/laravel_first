@@ -8,7 +8,7 @@ use App\Models\Team;
 
 <div class="container mt-4">
     <div class="card p-4">
-        <h4 class="mb-3">Confirm create information</h4>
+        <h4 class="mb-3">Employee - Create confirm</h4>
 
         <form action="{{ route('employee.create') }}" method="POST">
             @csrf

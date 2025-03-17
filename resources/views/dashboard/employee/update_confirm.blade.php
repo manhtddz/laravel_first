@@ -8,7 +8,7 @@ use App\Models\Team;
 
 <div class="container mt-4">
     <div class="card p-4">
-        <h4 class="mb-3">Confirm update information</h4>
+        <h4 class="mb-3">Employee - Update confirm</h4>
 
         <form action="{{ route('employee.update', session('employee_data.id')) }}" method="POST">
             @csrf

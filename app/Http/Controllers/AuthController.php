@@ -39,7 +39,7 @@ class AuthController extends Controller
         ];
         if (Auth::attempt($credentials)) {
             Session::put('user_session_id', $token);
-            return redirect()->route('team.index')->with("success", "vaof dc r");
+            return redirect()->route('team.index')->with("success", "Login success");
         }
         return redirect()->route('auth.admin')->with("emailError", "Login failed");
     }

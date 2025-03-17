@@ -1,6 +1,6 @@
 <div class="container mt-4">
     <div class="card p-4">
-        <h4 class="mb-3">Confirm update information</h4>
+        <h4 class="mb-3">Team - Update confirm</h4>
 
         <form action="{{ route('team.update', $id) }}" method="POST">
             @csrf

@@ -6,7 +6,7 @@ use App\Const\TypeOfWork;
 use App\Models\Team;
 ?>
 <div class="container mt-4">
-    <h2 class="mb-3">Add Employee</h2>
+    <h2 class="mb-3">Employee - Update</h2>
     <form action="{{ route('employee.updateConfirm',$employee->id) }}" method="POST" enctype="multipart/form-data">
         @csrf
         <div class="mb-3">

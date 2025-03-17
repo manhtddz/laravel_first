@@ -17,7 +17,7 @@ class AuthenticationMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         if (!Auth::check()) {
-            return redirect()->route('auth.admin')->with("error", "Bạn chưa đăng nhập!");
+            return redirect()->route('auth.admin')->with("error", "You are not login!");
         }
         return $next($request);
     }
