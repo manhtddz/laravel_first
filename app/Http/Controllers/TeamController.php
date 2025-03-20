@@ -26,11 +26,13 @@ class TeamController extends Controller
             $request->all(),
             fn($value) => $value !== "" && $value !== null
         );
-
+        $sort = $_GET['sortBy'] ?? null;
+        $direction = $_GET['direction'] ?? 'desc';
+        $newDirection = $direction === 'asc' ? 'desc' : 'asc';
         if (!empty($filtered)) { // Chỉ gọi service nếu có dữ liệu tìm kiếm
-            $teams = $this->teamService->search($filtered)->appends($request->query());
+            $teams = $this->teamService->search($filtered, $sort, $direction)->appends($request->query());
         }
-        return view('dashboard.layout', compact(['config', 'teams']));
+        return view('dashboard.layout', compact(['config', 'teams', 'sort', 'direction', 'newDirection']));
     }
     public function edit($id)
     {
@@ -59,7 +61,7 @@ class TeamController extends Controller
         return view('dashboard.layout', compact(['config', 'id']));
     }
     public function showUpdateConfirm()
-    {            
+    {
 
         // Kiểm tra session có dữ liệu hay không
         if (!session()->has('team_data')) {

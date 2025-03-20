@@ -13,6 +13,11 @@
             <input type="text" class="form-control" name="name" value="{{ old('name', session('team_data.name')) }}">
             @error('name') <p style="color: red;">{{ $message }}</p> @enderror
         </div>
-        <button type="submit" class="btn btn-success">Confirm</button>
+        <div class="d-flex justify-content-between">
+            <button type="submit" class="btn btn-success">
+                Confirm
+            </button>
+            <a href="{{ route('team.index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
     </form>
 </div>

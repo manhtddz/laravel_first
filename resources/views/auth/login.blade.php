@@ -35,7 +35,8 @@
                     @csrf
                     <div class="mb-3">
                         <label for="email" class="form-label">Email</label>
-                        <input type="text" class="form-control" id="email" name="email">
+                        <input type="text" class="form-control" id="email" name="email"
+                            value="{{ old('email', session('login_email')) }}">
                         <!-- Hiển thị lỗi -->
                         @if ($errors->has('email'))
                             <div class="alert alert-danger">

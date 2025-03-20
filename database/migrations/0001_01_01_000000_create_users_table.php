@@ -23,7 +23,7 @@ return new class extends Migration {
         Schema::create('m_employees', function (Blueprint $table) {
             $table->id();
             $table->foreignId('team_id')->constrained('m_teams')->onDelete('cascade');
-            $table->string('email', 128)->unique();
+            $table->string('email', 128);
             $table->string('first_name', 128);
             $table->string('last_name', 128);
             $table->string('password', 64);

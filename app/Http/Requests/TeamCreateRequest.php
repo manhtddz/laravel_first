@@ -26,7 +26,9 @@ class TeamCreateRequest extends FormRequest
             "name" => [
                 'required',
                 'max:128',
-                Rule::unique('m_teams', 'name'),
+                Rule::unique('m_teams', 'name')->where(function ($query) {
+                    return $query->whereNot('del_flag', 1);
+                }),
             ],
         ];
     }

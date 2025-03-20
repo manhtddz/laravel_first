@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\TeamController;
 use App\Http\Middleware\AuthenticationMiddleware;
+use App\Http\Middleware\ClearSessionTempFileMiddleware;
+use App\Http\Middleware\ClearTempFileMiddleware;
 use App\Http\Middleware\LoginMiddleware;
 use App\Http\Middleware\SingleAccountMiddleware;
 use App\Http\Middleware\TimeoutMiddleware;
@@ -21,7 +23,7 @@ Route::get('logout', [AuthController::class, 'logout'])->name('auth.logout');
 
 Route::middleware([
     AuthenticationMiddleware::class,
-        // SingleAccountMiddleware::class
+    ClearTempFileMiddleware::class,
     TimeTrackMiddleware::class,
     TimeoutMiddleware::class
 ])->group(function () {
@@ -37,7 +39,7 @@ Route::middleware([
 
 Route::middleware([
     AuthenticationMiddleware::class,
-    // SingleAccountMiddleware::class
+    ClearSessionTempFileMiddleware::class
 ])->group(function () {
 
     Route::get('team', [TeamController::class, 'index'])->name('team.index');
@@ -53,13 +55,17 @@ Route::middleware([
 
     Route::get('employee', [EmployeeController::class, 'index'])->name('employee.index');
 
-    Route::get('employee/edit/{id}', [EmployeeController::class, 'edit'])->name('employee.edit');
     Route::post('employee/updateConfirm/{id}', [EmployeeController::class, 'updateConfirm'])->name('employee.updateConfirm');
     Route::get('employee/updateConfirm/{id}', [EmployeeController::class, 'showUpdateConfirm'])->name('employee.updateConfirm');
 
-    Route::get('employee/create', [EmployeeController::class, 'getCreateForm'])->name('employee.create');
     Route::post('employee/createConfirm', [EmployeeController::class, 'createConfirm'])->name('employee.createConfirm');
     Route::get('employee/createConfirm', [EmployeeController::class, 'showCreateConfirm'])->name('employee.showCreateConfirm');
     Route::post('employee/export', [EmployeeController::class, 'export'])->name('employee.export');
 
+});
+Route::middleware([
+    AuthenticationMiddleware::class,
+])->group(function () {
+    Route::get('employee/edit/{id}', [EmployeeController::class, 'edit'])->name('employee.edit');
+    Route::get('employee/create', [EmployeeController::class, 'getCreateForm'])->name('employee.create');
 });

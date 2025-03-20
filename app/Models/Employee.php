@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +30,7 @@ class Employee extends Authenticatable
         'type_of_work',
         'del_flag'
     ];
+
     public function setPasswordAttribute($value)
     {
         if (!password_get_info($value)['algo']) {
@@ -39,6 +41,19 @@ class Employee extends Authenticatable
     {
         return $this->first_name . ' ' . $this->last_name;
     }
+    // public function last_name()
+    // {
+    //     return Attribute::make(
+    //         get: fn($value) => ucfirst($value ?? ''),
+    //         set: fn($value) => ucfirst($value),
+    //     );
+    // }
+    // protected function fullName()
+    // {
+    //     return Attribute::make(
+    //         get: fn() => $this->first_name . " " . $this->last_name
+    //     );
+    // }
     protected static function boot()
     {
         parent::boot();

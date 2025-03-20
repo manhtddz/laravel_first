@@ -26,6 +26,11 @@ class EmployeeService
     {
         return $this->employeeRepository->findAllPaging(2);
     }
+    public function findAllEmployeeId()
+    {
+        return $this->employeeRepository->findAllEmployeeId();
+    }
+
     public function findById($id)
     {
         if (!is_numeric($id)) {
@@ -37,13 +42,21 @@ class EmployeeService
         }
         return $employee;
     }
-    public function findByEmailIgnoreDelFlag($email)
+    public function findNotActiveEmployeeByEmail($email)
     {
-        return $this->employeeRepository->findByEmailIgnoreDelFlag($email);
+        return $this->employeeRepository->findNotActiveEmployeeByEmail($email);
+    }
+    public function findActiveEmployeeByEmail($email)
+    {
+        return $this->employeeRepository->findActiveEmployeeByEmail($email);
     }
     public function search(array $request, $sort, $direction)
     {
         return $this->employeeRepository->searchPaging(2, $request, $sort, $direction);
+    }
+    public function findAllSearchedId(array $request, $sort, $direction)
+    {
+        return $this->employeeRepository->findAllSearchedId($request, $sort, $direction);
     }
     public function create(array $request)
     {
@@ -82,12 +95,17 @@ class EmployeeService
         $filePath = storage_path("app/public/temp/" . $fileName);
 
         $handle = fopen($filePath, "w");
-        fputcsv($handle, ['ID', 'Name', 'Email']);
+        fputcsv($handle, ['ID', 'Team', 'Name', 'Email']);
 
         $emps = Employee::whereIn('id', $ids)->get(); // Lọc theo ID
 
         foreach ($emps as $emp) {
-            fputcsv($handle, [strip_tags($emp->id), strip_tags($emp->name), strip_tags($emp->email)]);
+            fputcsv($handle, [
+                strip_tags($emp->id),
+                strip_tags($emp->team->name),
+                strip_tags($emp->name),
+                strip_tags($emp->email)
+            ]);
         }
 
         fclose($handle);

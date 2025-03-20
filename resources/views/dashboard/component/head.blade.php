@@ -9,5 +9,13 @@
         margin-top: 0;
         /* Giúp dropdown hiển thị đúng vị trí */
     }
+
+    a {
+        text-decoration: none;
+    }
+
+    a:hover {
+        text-decoration: none;
+    }
 </style>
 <title>Management</title>

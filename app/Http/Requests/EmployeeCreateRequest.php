@@ -24,7 +24,14 @@ class EmployeeCreateRequest extends FormRequest
     {
         return [
             'team_id' => ['required', 'integer', Rule::exists('m_teams', 'id')],
-            'email' => ['required', 'email', 'max:128', Rule::unique('m_employees', 'email')],
+            'email' => [
+                'required',
+                'email',
+                'max:128',
+                Rule::unique('m_employees', 'email')->where(function ($query) {
+                    return $query->whereNot('del_flag', 1);
+                })
+            ],
             'first_name' => ['required', 'string', 'max:128'],
             'last_name' => ['required', 'string', 'max:128'],
             'password' => ['required', 'string', 'min:6', 'max:64'],
@@ -95,4 +102,26 @@ class EmployeeCreateRequest extends FormRequest
 
         ];
     }
+    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+    {
+        $this->storeTempFile();
+        parent::failedValidation($validator);
+    }
+
+    private function storeTempFile()
+    {
+        if ($this->hasFile('avatar')) {
+            $file = $this->file('avatar');
+            if (in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/jpg'])) {
+                $path = $file->store('temp', 'public'); // Lưu vào storage/temp
+                $tempFileName = str_replace('temp/', '', $path);
+                session()->put('temp_file', $tempFileName);
+            } else {
+                session()->put('temp_file', $this->input('old_avatar'));
+            }
+        } else if ($this->has('old_avatar')) {
+            session()->put('temp_file', $this->input('old_avatar'));
+        }
+    }
+
 }

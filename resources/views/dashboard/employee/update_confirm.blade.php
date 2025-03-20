@@ -19,8 +19,13 @@ use App\Models\Team;
                 @endphp
 
                 @if ($avatarPath)
-                    <img id="previewImage" src="{{ url('storage/app/' . $avatarPath) }}" alt="Preview"
-                        style="max-width: 200px; margin-top: 10px;">
+                    @if($avatarPath === session('employee_data.old_avatar'))
+                        <img id="previewImage" src="{{ url('storage/app/' . $avatarPath) }}" alt="{{ $avatarPath }}"
+                            style="max-width: 200px; margin-top: 10px;">
+                    @else
+                        <img id="previewImage" src="{{ url('storage/temp/' . $avatarPath) }}" alt="{{ $avatarPath }}"
+                            style="max-width: 200px; margin-top: 10px;">
+                    @endif
                 @else
                     <p style="color: red;">No image found</p>
                 @endif

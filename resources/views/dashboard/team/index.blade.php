@@ -15,7 +15,7 @@
         <div class="col-md-4">
             <label for="name" class="form-label">Name:</label>
             <input type="text" class="form-control" id="name" name="name" placeholder="Team name"
-                value="{{ old('name') }}">
+                value="{{ request()->query('name') }}">
             <p style="color: red;">{{ $error ?? '' }}</p>
 
         </div>
@@ -33,8 +33,10 @@
         <table class="table table-bordered">
             <thead class="table-dark">
                 <tr>
-                    <th>ID</th>
-                    <th>Team</th>
+                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'id', 'direction' => $newDirection]) }}"
+                            class="text-white">ID ↕</a></th>
+                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'name', 'direction' => $newDirection]) }}"
+                            class="text-white">Team ↕</a></th>
                     <th>Action</th>
                 </tr>
             </thead>

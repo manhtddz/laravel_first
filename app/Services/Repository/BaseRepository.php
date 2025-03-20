@@ -2,6 +2,7 @@
 
 namespace App\Services\Repository;
 
+use App\Models\Employee;
 use App\Models\Team;
 use App\Services\Interfaces\IRepository;
 use DB;
@@ -22,7 +23,7 @@ abstract class BaseRepository implements IRepository
             return $this->model::find($id);
             // return redirect()->route('user.index')->with('success', 'tao thanh cong');
         } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            dd($e->getMessage());
         }
     }
     public function findAll()
@@ -30,7 +31,7 @@ abstract class BaseRepository implements IRepository
         try {
             return $this->model::all();
         } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            dd($e->getMessage());
         }
     }
     public function findAllPaging($amount)
@@ -39,7 +40,7 @@ abstract class BaseRepository implements IRepository
             // return $this->model->paginate(10, ['*'], 'page', $page);
             return $this->model::paginate($amount);
         } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            dd($e->getMessage());
         }
     }
     public function create(array $requestData)
@@ -50,7 +51,7 @@ abstract class BaseRepository implements IRepository
             $this->model::create($requestData);
             // return redirect()->route('user.index')->with('success', 'tao thanh cong');
         } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            dd($e->getMessage());
         }
     }
     public function update($id, array $requestData)
@@ -60,7 +61,7 @@ abstract class BaseRepository implements IRepository
             unset($requestData['_token']);
             $item->update($requestData);
         } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            dd($e->getMessage());
         }
     }
     public function delete($id)
@@ -70,7 +71,7 @@ abstract class BaseRepository implements IRepository
             $item->delete();
             // return redirect()->route('user.index')->with('success', 'delete thanh cong');
         } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            dd($e->getMessage());
         }
     }
     public function searchPaging($amount, array $requestData, $sort = null, $direction = 'asc')
@@ -101,7 +102,7 @@ abstract class BaseRepository implements IRepository
                 }
             }
 
-            if ($sort === 'name') {
+            if ($sort === 'name' && $this->model === Employee::class) {
                 $query->orderByRaw("CONCAT(first_name, ' ', last_name) {$direction}");
             } else {
                 if ($sort && in_array(strtolower($sort), $columns)) {
@@ -111,7 +112,7 @@ abstract class BaseRepository implements IRepository
             return $query->paginate($amount);
 
         } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            dd($e->getMessage());
         }
 
     }

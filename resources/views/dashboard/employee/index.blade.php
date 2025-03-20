@@ -14,18 +14,21 @@
     <form action="{{ route('employee.index') }}" method="GET" class="mb-3">
         <div class="col-md-4">
             <label for="name" class="form-label">Name:</label>
-            <input type="text" class="form-control" id="name" name="name" placeholder="Name" value="{{ old('name') }}">
+            <input type="text" class="form-control" id="name" name="name" placeholder="Name"
+                value="{{ request()->query('name') }}">
         </div>
         <div class="col-md-4">
             <label for="email" class="form-label">Email:</label>
             <input type="text" class="form-control" id="email" name="email" placeholder="Email"
-                value="{{ old('email') }}">
+                value="{{ request()->query('email') }}">
         </div>
         <label class="form-label" for="team">Team:</label><br>
         <select class="form-control w-25" id="team" name="team_id">
-            <option value="{{ 0 }}">{{ '' }}</option>
+            <option value="0" {{ request()->query('team_id') == 0 ? 'selected' : '' }}>{{ '' }}</option>
             @foreach ($teams as $team)
-                <option value="{{ $team->id }}">{{ $team->name }}</option>
+                <option value="{{ $team->id }}" {{ request()->query('team_id') == $team->id ? 'selected' : '' }}>
+                    {{ $team->name }}
+                </option>
             @endforeach
         </select>
         <div class="d-flex justify-content-between mt-3 w-100">
@@ -39,11 +42,7 @@
     @if($employees->isNotEmpty())
 
         @php
-            $exIds = [];
-            foreach ($employees as $employee) {
-                $exIds[] = $employee->id; // Đẩy id vào mảng
-            }
-            $fields = implode(", ", array_map(fn($id) => "{$id} = :{$id}", $exIds));
+            $fields = implode(", ", array_map(fn($id) => "{$id} = :{$id}", $employeeIds));
         @endphp
         <form method="POST" action="{{ route('employee.export') }}">
             @csrf
@@ -55,14 +54,14 @@
             <thead class="table-dark">
                 <tr>
                     <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'id', 'direction' => $newDirection]) }}"
-                            class="text-white">ID</a></th>
+                            class="text-white">ID ↕</a></th>
                     <th>Avatar</th>
                     <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'team_id', 'direction' => $newDirection]) }}"
-                            class="text-white">Team</a></th>
+                            class="text-white">Team ↕</a></th>
                     <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'name', 'direction' => $newDirection]) }}"
-                            class="text-white">Name</a></th>
+                            class="text-white">Name ↕</a></th>
                     <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'email', 'direction' => $newDirection]) }}"
-                            class="text-white">Email</a></th>
+                            class="text-white">Email ↕</a></th>
                     <th>Action</th>
                 </tr>
             </thead>

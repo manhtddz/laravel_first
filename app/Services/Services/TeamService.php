@@ -36,9 +36,9 @@ class TeamService
         }
         return $team;
     }
-    public function search(array $request)
+    public function search(array $request, $sort, $direction)
     {
-        return $this->teamRepository->searchPaging(2, $request);
+        return $this->teamRepository->searchPaging(2, $request, $sort, $direction);
     }
     public function create(array $request)
     {

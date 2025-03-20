@@ -28,20 +28,26 @@ use App\Models\Team;
             @error('avatar')
                 <p style="color: red;">{{ $message }}</p>
             @enderror
-            <img id="previewImage" src="#" alt="Preview" style="display: none; max-width: 200px; margin-top: 10px;">
-
+            <!-- <img id="previewImage" src="#" alt="Preview" style="display: none; max-width: 200px; margin-top: 10px;"> -->
             @php
-                $avatarPath =  $employee->avatar;
+                $tempFile = session('temp_file') ?? session('employee_data.avatar');
+                $avatarPath = $employee->avatar;
+                $isTempFile = $tempFile && $tempFile !== $avatarPath;
+                $imageSrc = $isTempFile ? asset('storage/temp/' . $tempFile) : asset('storage/app/' . $avatarPath);
             @endphp
 
-            @if ($avatarPath)
-                <img id="previewImage" src="{{ asset('storage/app/' . $avatarPath) }}" alt="Preview"
-                    style="max-width: 200px; margin-top: 10px;">
+            @if ($tempFile || $avatarPath)
+                <p>File đã tải lên: </p>
+                <img src="{{ $imageSrc }}" style="max-width: 200px; margin-top: 10px;">
             @endif
-        </div>
-        <input type="hidden" name="old_avatar" value="{{ $employee->avatar }}">
 
-        <script>
+            <input type="hidden" name="uploaded_avatar" value="{{ $tempFile ?? $avatarPath }}">
+
+            <input type="hidden" name="old_avatar" value="{{ $employee->avatar }}">
+
+        </div>
+
+        <!-- <script>
             document.getElementById('avatar').addEventListener('change', function (event) {
                 const file = event.target.files[0];
                 if (file) {
@@ -54,7 +60,7 @@ use App\Models\Team;
                     reader.readAsDataURL(file);
                 }
             });
-        </script>
+        </script> -->
 
         <div class="mb-3">
             <label for="email" class="form-label">Email:</label>
@@ -192,6 +198,11 @@ use App\Models\Team;
             @enderror
         </div>
 
-        <button type="submit" class="btn btn-success">Confirm</button>
-    </form>
+            <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-success">
+                    Confirm
+                </button>
+                <a href="{{ route('employee.index') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
 </div>

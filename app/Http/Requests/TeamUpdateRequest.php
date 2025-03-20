@@ -27,7 +27,11 @@ class TeamUpdateRequest extends FormRequest
             "name" => [
                 'required',
                 'max:128',
-                Rule::unique('m_teams', 'name')->ignore($id),
+                Rule::unique('m_teams', 'name')
+                    ->ignore($id)
+                    ->where(function ($query) {
+                        return $query->whereNot('del_flag', 1);
+                    }),
             ],
         ];
     }

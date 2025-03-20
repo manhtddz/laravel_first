@@ -24,13 +24,19 @@ class AuthController extends Controller
 
     public function login(AuthRequest $request)
     {
-        $token = Str::random(40);
+        // $token = Str::random(40);
 
-        $foundEmp = $this->employeeService->findByEmailIgnoreDelFlag($request->input('email'));
+        $foundEmp = $this->employeeService->findActiveEmployeeByEmail($request->input('email'));
         if (empty($foundEmp)) {
+            session()->put('login_email', $request->input('email'));
+            $foundEmp = $this->employeeService->findNotActiveEmployeeByEmail($request->input('email'));
+            if ($foundEmp) {
+                return redirect()->route('auth.admin')->with("emailError", "Login failed");
+            }
             return redirect()->route('auth.admin')->with("emailError", "Email not found");
         }
-        if($foundEmp->del_flag == 1) {
+        if ($foundEmp->del_flag == 1) {
+            session()->put('login_email', $request->input('email'));
             return redirect()->route('auth.admin')->with("emailError", "Login failed");
         }
         $credentials = [
@@ -38,9 +44,10 @@ class AuthController extends Controller
             "password" => $request->input('password')
         ];
         if (Auth::attempt($credentials)) {
-            Session::put('user_session_id', $token);
+            // Session::put('user_session_id', $token);
             return redirect()->route('team.index')->with("success", "Login success");
         }
+        session()->put('login_email', $request->input('email'));
         return redirect()->route('auth.admin')->with("emailError", "Login failed");
     }
     public function logout(Request $request)
