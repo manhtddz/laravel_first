@@ -41,7 +41,8 @@ class Team extends Model
     {
         return $this->hasMany(Employee::class);
     }
-
+    
+    //Update del_flag to 1, so that upd_datetime and upd_id are automatically updated
     public function delete()
     {
         $this->del_flag = IS_DELETED; // Update del_flag to 1

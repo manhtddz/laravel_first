@@ -1,20 +1,10 @@
-<?php
-// session_start();
-// if (isset($_SESSION["admin_id"]) && $_SESSION["admin_id"] != "0") {
-//     header("Location: ?controller=admin");
-//     exit;
-// }
-
-// $errors = $_SESSION['errors'] ?? [];
-// unset($_SESSION['errors']);
-?>
 <!DOCTYPE html>
 <html lang="vi">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng nhập</title>
+    <title>Login</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 </head>
 
@@ -25,9 +15,9 @@
                 <h3 class="text-center">Login</h3>
 
                 <!-- Hiển thị lỗi -->
-                @if (session('error'))
+                @if (session(SESSION_ERROR))
                     <div class="alert alert-danger">
-                        {{ session('error') }}
+                        {{ session(SESSION_ERROR) }}
                     </div>
                 @endif
 
@@ -43,14 +33,9 @@
                                 {{ $errors->first('email') }}
                             </div>
                         @endif
-                        @if (session('emailError'))
+                        @if (session(SESSION_EMAIL_ERROR))
                             <div class="alert alert-danger">
-                                {{ session('emailError') }}
-                            </div>
-                        @endif
-                        @if (session('wrongPassword'))
-                            <div class="alert alert-danger">
-                                {{ session('wrongPassword') }}
+                                {{ session(SESSION_EMAIL_ERROR) }}
                             </div>
                         @endif
                     </div>
@@ -58,7 +43,6 @@
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
                         <input type="password" class="form-control" id="password" name="password">
-                        <!-- Hiển thị lỗi -->
                         @if ($errors->has('password'))
                             <div class="alert alert-danger">
                                 {{ $errors->first('password') }}

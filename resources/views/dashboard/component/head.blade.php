@@ -7,7 +7,7 @@
     .dropdown:hover .dropdown-menu {
         display: block;
         margin-top: 0;
-        /* Giúp dropdown hiển thị đúng vị trí */
+        /* For correct dropdown position */
     }
 
     a {

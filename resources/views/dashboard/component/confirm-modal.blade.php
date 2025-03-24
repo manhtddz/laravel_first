@@ -1,6 +1,3 @@
-<!-- Button Save -->
-
-
 <!-- Modal -->
 <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel">
     <div class="modal-dialog">
