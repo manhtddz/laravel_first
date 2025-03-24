@@ -55,7 +55,7 @@ class EmployeeMail extends Mailable
 
     public function build()
     {
-        return $this->subject('Nhân viên mới đã được tạo')
+        return $this->subject(EMAIL_TITLE)
             ->view('emails.employee_created')
             ->with('employee', $this->employee);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -37,40 +38,30 @@ class Employee extends Authenticatable
             $this->attributes['password'] = bcrypt($value);
         }
     }
+
     public function getNameAttribute()
     {
         return $this->first_name . ' ' . $this->last_name;
     }
-    // public function last_name()
-    // {
-    //     return Attribute::make(
-    //         get: fn($value) => ucfirst($value ?? ''),
-    //         set: fn($value) => ucfirst($value),
-    //     );
-    // }
-    // protected function fullName()
-    // {
-    //     return Attribute::make(
-    //         get: fn() => $this->first_name . " " . $this->last_name
-    //     );
-    // }
+
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($model) {
             $model->ins_id = auth()->user()->id;
-            $model->del_flag = 0;
+            $model->del_flag = IS_NOT_DELETED;
         });
 
         static::updating(function ($model) {
             $model->upd_id = auth()->user()->id;
         });
     }
+
     protected static function booted()
     {
         static::addGlobalScope('active', function ($query) {
-            $query->where('del_flag', 0);
+            $query->where('del_flag', IS_NOT_DELETED);
         });
     }
 
@@ -79,39 +70,32 @@ class Employee extends Authenticatable
         return $query->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$keyword}%"]);
     }
 
-
-
-    public function team()
+    public function team()//relationship
     {
         return $this->belongsTo(Team::class);
     }
+
     public function getAuthIdentifierName()
     {
-        return 'email'; // Hoặc đổi thành 'username' nếu login bằng username
+        return 'email'; // authenticate field
     }
 
     public function delete()
     {
-        $this->del_flag = 1; // Đánh dấu là bị xóa
+        $this->del_flag = IS_DELETED; // Update del_flag to 1
         return $this->save();
     }
 
-    // Thêm phương thức restore() để khôi phục bản ghi
+    // Recover deleted record
     public function restore()
     {
-        $this->del_flag = 0; // Bỏ đánh dấu xóa
+        $this->del_flag = IS_NOT_DELETED; // Recover del_flag to 0
         return $this->save();
     }
 
-    // Tạo scope để lọc ra các bản ghi chưa bị xóa
-    // public function scopeActive($query)
-    // {
-    //     return $query->where('del_flag', 0);
-    // }
-
-    // Kiểm tra xem bản ghi có bị xóa hay không
+    // Check is deleted
     public function trashed()
     {
-        return $this->del_flag == 1;
+        return $this->del_flag == IS_DELETED;
     }
 }

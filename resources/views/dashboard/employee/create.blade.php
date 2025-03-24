@@ -3,11 +3,10 @@ use App\Const\Gender;
 use App\Const\Position;
 use App\Const\Status;
 use App\Const\TypeOfWork;
-use App\Models\Team;
 ?>
-@if(session('error'))
+@if(session(SESSION_ERROR))
     <div class="alert alert-danger">
-        {{ session('error') }}
+        {{ session(SESSION_ERROR) }}
     </div>
 @endif
 <div class="container mt-4">
@@ -38,47 +37,16 @@ use App\Models\Team;
                 <p style="color: red;">{{ $message }}</p>
             @enderror
 
-            @if(session('temp_file'))
-                <p>File đã tải lên: </p>
-                <!-- <a href="{{ asset('storage/' . session('temp_file')) }}" target="_blank">Xem file</a> -->
-                <img src="{{ asset('storage/temp/' . session('temp_file')) }}"
-                    style="max-width: 200px; margin-top: 10px;">
-                <input type="hidden" name="old_avatar" value="{{ session('temp_file','') }}">
-            @else
-                @if (session('employee_data.avatar'))
-                <p>File đã tải lên: </p>
-                <img src="{{ asset('storage/temp/' .  session('employee_data.avatar')) }}"
-                    style="max-width: 200px; margin-top: 10px;">
-                @endif
-                <input type="hidden" name="old_avatar" value="{{ session('employee_data.avatar','') }}">
-            @endif
-            <!-- <img id="previewImage" src="#" alt="Preview" style="display: none; max-width: 200px; margin-top: 10px;">
-
             @php
-                $avatarPath = old('avatar', session('employee_data.avatar'));
+                $avatar = session('temp_file') ?? session('employee_data.avatar');
             @endphp
 
-            @if ($avatarPath)
-                <img id="previewImage" src="{{ asset('storage/temp/' . $avatarPath) }}" alt="Preview"
-                    style="max-width: 200px; margin-top: 10px;">
+            @if ($avatar)
+                <p>File đã tải lên:</p>
+                <img src="{{ asset(TEMP_URL . $avatar) }}" style="max-width: 200px; margin-top: 10px;">
             @endif
-        </div>
-        <input type="hidden" name="old_avatar" value="{{ session('employee_data.avatar', '')}}"> -->
 
-            <!-- <script>
-            document.getElementById('avatar').addEventListener('change', function (event) {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        const preview = document.getElementById('previewImage');
-                        preview.src = e.target.result;
-                        preview.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        </script> -->
+            <input type="hidden" name="old_avatar" value="{{ $avatar ?? '' }}">
 
             <div class="mb-3">
                 <label for="email" class="form-label">Email:</label>
@@ -125,16 +93,15 @@ use App\Models\Team;
                 @enderror
             </div>
 
-
             <div class="mb-3">
                 <label for="birthday" class="form-label">Birthday:</label>
 
                 @php
                     $birthday = old('birthday', session('employee_data.birthday'));
                     if ($birthday instanceof \Carbon\Carbon) {
-                        $birthday = $birthday->format('Y-m-d'); // Chuyển về định dạng phù hợp nếu là Carbon
+                        $birthday = $birthday->format('Y-m-d');
                     } elseif (!empty($birthday)) {
-                        $birthday = date('Y-m-d', strtotime($birthday)); // Nếu là chuỗi, đảm bảo đúng định dạng
+                        $birthday = date('Y-m-d', strtotime($birthday));
                     }
                 @endphp
 
@@ -163,7 +130,7 @@ use App\Models\Team;
 
                 @php
                     $positionOptions = Position::LIST;
-                    $selectedPosition = old('position', session('employee_data.position')); // Tránh lỗi khi session không có giá trị
+                    $selectedPosition = old('position', session('employee_data.position'));
                 @endphp
                 <select class="form-control" id="position" name="position">
                     <option value="">{{ '' }}
@@ -186,7 +153,7 @@ use App\Models\Team;
 
                 @php
                     $statusOptions = Status::LIST;
-                    $selectedStatus = old('status', session('employee_data.status')); // Tránh lỗi khi session không có giá trị
+                    $selectedStatus = old('status', session('employee_data.status'));
                 @endphp
 
                 @foreach ($statusOptions as $value => $label)

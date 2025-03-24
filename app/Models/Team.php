@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -14,7 +15,6 @@ class Team extends Model
         'name',
         'del_flag'
     ];
-    protected $guarded = []; // Loại bỏ bảo vệ trường nào đó
 
     protected static function boot()
     {
@@ -22,18 +22,19 @@ class Team extends Model
 
         static::creating(function ($model) {
             $model->ins_id = auth()->user()->id;
-            $model->del_flag = 0;
+            $model->del_flag = IS_NOT_DELETED;
         });
 
         static::updating(function ($model) {
             $model->upd_id = auth()->user()->id;
         });
     }
+
     //global scope
     protected static function booted()
     {
         static::addGlobalScope('active', function ($query) {
-            $query->where('del_flag', 0);
+            $query->where('del_flag', IS_NOT_DELETED);
         });
     }
     public function employees()
@@ -43,7 +44,7 @@ class Team extends Model
 
     public function delete()
     {
-        $this->del_flag = 1; // Đánh dấu là bị xóa
+        $this->del_flag = IS_DELETED; // Update del_flag to 1
         $employees = Employee::where('team_id', $this->id)->get();
         foreach ($employees as $employee) {
             $employee->delete();
@@ -51,23 +52,17 @@ class Team extends Model
         return $this->save();
     }
 
-    // Thêm phương thức restore() để khôi phục bản ghi
+    // Recover deleted record
     public function restore()
     {
-        $this->del_flag = 0; // Bỏ đánh dấu xóa
+        $this->del_flag = IS_NOT_DELETED; // Recover del_flag to 0
         return $this->save();
     }
 
-    // Tạo scope để lọc ra các bản ghi chưa bị xóa
-    // public function scopeActive($query)
-    // {
-    //     return $query->where('del_flag', 0);
-    // }
-
-    // Kiểm tra xem bản ghi có bị xóa hay không
+    // Check is deleted
     public function trashed()
     {
-        return $this->del_flag == 1;
+        return $this->del_flag == IS_DELETED;
     }
 
     public static function getFieldById($id, $field)

@@ -19,14 +19,4 @@ class AuthRequest extends FormRequest
             'password' => ['required']
         ];
     }
-
-    public function messages(): array
-    {
-        return [
-            'email.required' => 'Email can not be blank',
-            'email.email' => 'Wrong email format',
-
-            'password.required' => 'Password can not be blank'
-        ];
-    }
 }

@@ -20,52 +20,64 @@ Route::get('/', [AuthController::class, 'index'])->name('auth.admin')->middlewar
 );
 Route::post('login', [AuthController::class, 'login'])->name('auth.login');
 Route::get('logout', [AuthController::class, 'logout'])->name('auth.logout');
-
+//emp crud route
 Route::middleware([
     AuthenticationMiddleware::class,
     ClearTempFileMiddleware::class,
-    TimeTrackMiddleware::class,
     TimeoutMiddleware::class
-])->group(function () {
-    Route::post('team/update/{id}', [TeamController::class, 'update'])->name('team.update');
-    Route::post('team/create', [TeamController::class, 'create'])->name('team.create');
-    Route::post('team/delete/{id}', [TeamController::class, 'delete'])->name('team.delete');
-
-    Route::post('employee/update/{id}', [EmployeeController::class, 'update'])->name('employee.update');
-    Route::post('employee/create', [EmployeeController::class, 'create'])->name('employee.create');
-    Route::post('employee/delete/{id}', [EmployeeController::class, 'delete'])->name('employee.delete');
-
+])->prefix("team")->group(function () {
+    Route::post('update/{id}', [TeamController::class, 'update'])->name('team.update');
+    Route::post('create', [TeamController::class, 'create'])->name('team.create');
+    Route::post('delete/{id}', [TeamController::class, 'delete'])->name('team.delete');
+});
+//team crud route
+Route::middleware([
+    AuthenticationMiddleware::class,
+    ClearTempFileMiddleware::class,
+    TimeoutMiddleware::class
+])->prefix("employee")->group(function () {
+    Route::post('update/{id}', [EmployeeController::class, 'update'])->name('employee.update');
+    Route::post('create', [EmployeeController::class, 'create'])->name('employee.create');
+    Route::post('delete/{id}', [EmployeeController::class, 'delete'])->name('employee.delete');
 });
 
+//team get template
 Route::middleware([
     AuthenticationMiddleware::class,
     ClearSessionTempFileMiddleware::class
-])->group(function () {
+])->prefix("team")->group(function () {
 
-    Route::get('team', [TeamController::class, 'index'])->name('team.index');
+    Route::get('', [TeamController::class, 'index'])->name('team.index');
 
-    Route::get('team/edit/{id}', [TeamController::class, 'edit'])->name('team.edit');
-    Route::post('team/updateConfirm/{id}', [TeamController::class, 'updateConfirm'])->name('team.updateConfirm');
-    Route::get('team/updateConfirm/{id}', [TeamController::class, 'showUpdateConfirm'])->name('team.updateConfirm');
+    Route::get('edit/{id}', [TeamController::class, 'edit'])->name('team.edit');
+    Route::post('updateConfirm/{id}', [TeamController::class, 'updateConfirm'])->name('team.updateConfirm');
+    Route::get('updateConfirm/{id}', [TeamController::class, 'showUpdateConfirm'])->name('team.updateConfirm');
 
-    Route::get('team/create', [TeamController::class, 'getCreateForm'])->name('team.create');
-    Route::post('team/createConfirm', [TeamController::class, 'createConfirm'])->name('team.createConfirm');
-    Route::get('team/createConfirm', [TeamController::class, 'showCreateConfirm'])->name('team.showCreateConfirm');
-
-
-    Route::get('employee', [EmployeeController::class, 'index'])->name('employee.index');
-
-    Route::post('employee/updateConfirm/{id}', [EmployeeController::class, 'updateConfirm'])->name('employee.updateConfirm');
-    Route::get('employee/updateConfirm/{id}', [EmployeeController::class, 'showUpdateConfirm'])->name('employee.updateConfirm');
-
-    Route::post('employee/createConfirm', [EmployeeController::class, 'createConfirm'])->name('employee.createConfirm');
-    Route::get('employee/createConfirm', [EmployeeController::class, 'showCreateConfirm'])->name('employee.showCreateConfirm');
-    Route::post('employee/export', [EmployeeController::class, 'export'])->name('employee.export');
-
+    Route::get('create', [TeamController::class, 'getCreateForm'])->name('team.create');
+    Route::post('createConfirm', [TeamController::class, 'createConfirm'])->name('team.createConfirm');
+    Route::get('createConfirm', [TeamController::class, 'showCreateConfirm'])->name('team.showCreateConfirm');
 });
+
+//employee get template
 Route::middleware([
     AuthenticationMiddleware::class,
-])->group(function () {
-    Route::get('employee/edit/{id}', [EmployeeController::class, 'edit'])->name('employee.edit');
-    Route::get('employee/create', [EmployeeController::class, 'getCreateForm'])->name('employee.create');
+    ClearSessionTempFileMiddleware::class
+])->prefix("employee")->group(function () {
+
+    Route::get('', [EmployeeController::class, 'index'])->name('employee.index');
+
+    Route::post('updateConfirm/{id}', [EmployeeController::class, 'updateConfirm'])->name('employee.updateConfirm');
+    Route::get('updateConfirm/{id}', [EmployeeController::class, 'showUpdateConfirm'])->name('employee.updateConfirm');
+
+    Route::post('createConfirm', [EmployeeController::class, 'createConfirm'])->name('employee.createConfirm');
+    Route::get('createConfirm', [EmployeeController::class, 'showCreateConfirm'])->name('employee.showCreateConfirm');
+    Route::post('export', [EmployeeController::class, 'export'])->name('employee.export');
+});
+
+//employee get create and update template
+Route::middleware([
+    AuthenticationMiddleware::class,
+])->prefix("employee")->group(function () {
+    Route::get('edit/{id}', [EmployeeController::class, 'edit'])->name('employee.edit');
+    Route::get('create', [EmployeeController::class, 'getCreateForm'])->name('employee.create');
 });

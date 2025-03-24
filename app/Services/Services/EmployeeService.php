@@ -2,20 +2,23 @@
 
 namespace App\Services\Services;
 
+use App\Jobs\SendEmployeeEmailJob;
 use App\Models\Employee;
 use App\Services\Interfaces\IEmployeeRepository;
-use App\Services\Interfaces\ITeamRepository;
 use App\Services\Repository\EmployeeRepository;
-use App\Services\Repository\TeamRepository;
 use Exception;
 use Response;
+use Storage;
 
 class EmployeeService
 {
     private EmployeeRepository $employeeRepository;
+    private FileService $fileService;
+
     public function __construct(IEmployeeRepository $employeeRepository)
     {
         $this->employeeRepository = $employeeRepository;
+        $this->fileService = FileService::getInstance();
     }
     public function findAll()
     {
@@ -24,7 +27,7 @@ class EmployeeService
 
     public function findAllPaging()
     {
-        return $this->employeeRepository->findAllPaging(2);
+        return $this->employeeRepository->findAllPaging(ITEM_PER_PAGE);
     }
     public function findAllEmployeeId()
     {
@@ -34,11 +37,11 @@ class EmployeeService
     public function findById($id)
     {
         if (!is_numeric($id)) {
-            throw new Exception("That type of id is not accepted");
+            throw new Exception(WRONG_FORMAT_ID);
         }
         $employee = $this->employeeRepository->findById($id);
         if (!$employee) {
-            throw new Exception("Data doesn't exist");
+            throw new Exception(NOT_EXIST_ERROR);
         }
         return $employee;
     }
@@ -50,31 +53,60 @@ class EmployeeService
     {
         return $this->employeeRepository->findActiveEmployeeByEmail($email);
     }
-    public function search(array $request, $sort, $direction)
+    public function search(array $request, $sort = null, $direction = "asc")
     {
-        return $this->employeeRepository->searchPaging(2, $request, $sort, $direction);
+        $employees = $this->findAllPaging();
+        if (!empty($request)) { // Call service when search data is not empty
+            $employees = $this->employeeRepository
+                ->searchPaging(ITEM_PER_PAGE, $request, $sort, $direction);
+        }
+
+        return $employees;
     }
     public function findAllSearchedId(array $request, $sort, $direction)
     {
-        return $this->employeeRepository->findAllSearchedId($request, $sort, $direction);
+        $employeeIds = $this->findAllEmployeeId();
+
+        if (!empty($request)) { // Call service when search data is not empty
+            $employeeIds = $this->employeeRepository
+                ->findAllSearchedId($request, $sort, $direction);
+        }
+
+        return $employeeIds;
     }
     public function create(array $request)
     {
+        $this->fileService->moveTempFileToApp($request['avatar']);
+
+        $emailGetter['email'] = $request['email'];
+        $emailGetter['first_name'] = $request['first_name'];
+        $emailGetter['last_name'] = $request['last_name'];
+        SendEmployeeEmailJob::dispatch($emailGetter)->delay(now()->addSeconds(5));
+
         return $this->employeeRepository->create($request);
     }
     public function update(int $id, array $request)
     {
         $employee = $this->employeeRepository->findById($id);
         if (!$employee) {
-            throw new Exception("Data doesn't exist");
+            throw new Exception(NOT_EXIST_ERROR);
         }
+        if ($request['avatar'] !== $request['old_avatar']) {
+            $this->fileService->removeFile('app/' . $request['old_avatar']);
+            $this->fileService->moveTempFileToApp($request['avatar']);
+        }
+        $emailGetter['email'] = $request['email'];
+        $emailGetter['first_name'] = $request['first_name'];
+        $emailGetter['last_name'] = $request['last_name'];
+        SendEmployeeEmailJob::dispatch($emailGetter)->delay(now()->addSeconds(5));
+
         return $this->employeeRepository->update($id, $request);
     }
     public function delete(int $id)
     {
         $employee = $this->employeeRepository->findById($id);
         if (!$employee) {
-            throw new Exception("Data doesn't exist");
+            throw new Exception(NOT_EXIST_ERROR);
         }
         return $this->employeeRepository->delete($id);
     }
@@ -92,12 +124,18 @@ class EmployeeService
         ];
 
         $fileName = 'employees_' . time() . '.csv';
-        $filePath = storage_path("app/public/temp/" . $fileName);
+        $filePath = 'temp/' . $fileName; // Store in `storage/app/public/temp/`
 
-        $handle = fopen($filePath, "w");
+        // Create a white file in public disk
+        Storage::disk('public')->put($filePath, '');
+
+        // Take absolute path of white file
+        $absolutePath = Storage::disk('public')->path($filePath);
+
+        $handle = fopen($absolutePath, "w");
         fputcsv($handle, ['ID', 'Team', 'Name', 'Email']);
 
-        $emps = Employee::whereIn('id', $ids)->get(); // Lọc theo ID
+        $emps = Employee::whereIn('id', $ids)->get(); // Filter by ID
 
         foreach ($emps as $emp) {
             fputcsv($handle, [
@@ -111,7 +149,9 @@ class EmployeeService
         fclose($handle);
         ob_end_clean();
 
-        return Response::download($filePath, $fileName, $headers)->deleteFileAfterSend(true)->send();
+        return Response::download($absolutePath, $fileName, $headers)
+            ->deleteFileAfterSend(true)
+            ->send();
     }
 
 

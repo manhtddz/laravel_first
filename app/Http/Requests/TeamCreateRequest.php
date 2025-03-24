@@ -27,17 +27,9 @@ class TeamCreateRequest extends FormRequest
                 'required',
                 'max:128',
                 Rule::unique('m_teams', 'name')->where(function ($query) {
-                    return $query->whereNot('del_flag', 1);
+                    return $query->whereNot('del_flag', IS_DELETED);
                 }),
             ],
-        ];
-    }
-    public function messages(): array
-    {
-        return [
-            'name.required' => 'Name cannot be blank',
-            'name.max' => 'Name length is < 128',
-            'name.unique' => 'Name is existed',
         ];
     }
 }

@@ -23,22 +23,29 @@ class TeamService
     }
     public function findAllPaging()
     {
-        return $this->teamRepository->findAllPaging(2);
+        return $this->teamRepository->findAllPaging(ITEM_PER_PAGE);
     }
     public function findById($id)
     {
         if (!is_numeric($id)) {
-            throw new Exception("That type of id is not accepted");
+            throw new Exception(WRONG_FORMAT_ID);
         }
         $team = $this->teamRepository->findById($id);
         if (!$team) {
-            throw new Exception("Data doesn't exist");
+            throw new Exception(NOT_EXIST_ERROR);
         }
         return $team;
     }
     public function search(array $request, $sort, $direction)
     {
-        return $this->teamRepository->searchPaging(2, $request, $sort, $direction);
+        $teams = $this->findAllPaging();
+
+        if (!empty($request)) { // Call service when search data is not empty
+            $teams = $this->teamRepository
+                ->searchPaging(ITEM_PER_PAGE, $request, $sort, $direction);
+        }
+
+        return $teams;
     }
     public function create(array $request)
     {
@@ -48,7 +55,7 @@ class TeamService
     {
         $team = $this->teamRepository->findById($id);
         if (!$team) {
-            throw new Exception("Data doesn't exist");
+            throw new Exception(NOT_EXIST_ERROR);
         }
         return $this->teamRepository->update($id, $request);
     }
@@ -56,7 +63,7 @@ class TeamService
     {
         $team = $this->teamRepository->findById($id);
         if (!$team) {
-            throw new Exception("Data doesn't exist");
+            throw new Exception(NOT_EXIST_ERROR);
         }
         return $this->teamRepository->delete($id);
     }

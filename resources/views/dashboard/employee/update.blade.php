@@ -3,7 +3,6 @@ use App\Const\Gender;
 use App\Const\Position;
 use App\Const\Status;
 use App\Const\TypeOfWork;
-use App\Models\Team;
 ?>
 <div class="container mt-4">
     <h2 class="mb-3">Employee - Update</h2>
@@ -28,12 +27,11 @@ use App\Models\Team;
             @error('avatar')
                 <p style="color: red;">{{ $message }}</p>
             @enderror
-            <!-- <img id="previewImage" src="#" alt="Preview" style="display: none; max-width: 200px; margin-top: 10px;"> -->
             @php
                 $tempFile = session('temp_file') ?? session('employee_data.avatar');
                 $avatarPath = $employee->avatar;
                 $isTempFile = $tempFile && $tempFile !== $avatarPath;
-                $imageSrc = $isTempFile ? asset('storage/temp/' . $tempFile) : asset('storage/app/' . $avatarPath);
+                $imageSrc = $isTempFile ? asset(TEMP_URL . $tempFile) : asset(APP_URL . $avatarPath);
             @endphp
 
             @if ($tempFile || $avatarPath)
@@ -46,21 +44,6 @@ use App\Models\Team;
             <input type="hidden" name="old_avatar" value="{{ $employee->avatar }}">
 
         </div>
-
-        <!-- <script>
-            document.getElementById('avatar').addEventListener('change', function (event) {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        const preview = document.getElementById('previewImage');
-                        preview.src = e.target.result;
-                        preview.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        </script> -->
 
         <div class="mb-3">
             <label for="email" class="form-label">Email:</label>
@@ -85,7 +68,7 @@ use App\Models\Team;
 
             @php
                 $genderOptions = Gender::LIST;
-                $selectedGender = old('gender', session('employee_data.gender', $employee->gender)); // Tránh lỗi khi session không có giá trị
+                $selectedGender = old('gender', session('employee_data.gender', $employee->gender));
             @endphp
 
             @foreach ($genderOptions as $value => $label)
@@ -108,9 +91,9 @@ use App\Models\Team;
             @php
                 $birthday = old('birthday', session('employee_data.birthday', $employee->birthday));
                 if ($birthday instanceof \Carbon\Carbon) {
-                    $birthday = $birthday->format('Y-m-d'); // Chuyển về định dạng phù hợp nếu là Carbon
+                    $birthday = $birthday->format('Y-m-d');
                 } elseif (!empty($birthday)) {
-                    $birthday = date('Y-m-d', strtotime($birthday)); // Nếu là chuỗi, đảm bảo đúng định dạng
+                    $birthday = date('Y-m-d', strtotime($birthday));
                 }
             @endphp
 
@@ -139,7 +122,7 @@ use App\Models\Team;
 
             @php
                 $positionOptions = Position::LIST;
-                $selectedPosition = old('position', session('employee_data.position',$employee->position)); // Tránh lỗi khi session không có giá trị
+                $selectedPosition = old('position', session('employee_data.position',$employee->position));
             @endphp
 
             @foreach ($positionOptions as $value => $label)
@@ -161,7 +144,7 @@ use App\Models\Team;
 
             @php
                 $statusOptions = Status::LIST;
-                $selectedStatus = old('status', session('employee_data.status', $employee->status)); // Tránh lỗi khi session không có giá trị
+                $selectedStatus = old('status', session('employee_data.status', $employee->status));
             @endphp
 
             @foreach ($statusOptions as $value => $label)

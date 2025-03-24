@@ -20,10 +20,10 @@ use App\Models\Team;
 
                 @if ($avatarPath)
                     @if($avatarPath === session('employee_data.old_avatar'))
-                        <img id="previewImage" src="{{ url('storage/app/' . $avatarPath) }}" alt="{{ $avatarPath }}"
+                        <img src="{{ url(APP_URL . $avatarPath) }}" alt="{{ $avatarPath }}"
                             style="max-width: 200px; margin-top: 10px;">
                     @else
-                        <img id="previewImage" src="{{ url('storage/temp/' . $avatarPath) }}" alt="{{ $avatarPath }}"
+                        <img src="{{ url(TEMP_URL . $avatarPath) }}" alt="{{ $avatarPath }}"
                             style="max-width: 200px; margin-top: 10px;">
                     @endif
                 @else
@@ -31,6 +31,7 @@ use App\Models\Team;
                 @endif
 
                 <input type="hidden" name="avatar" value="{{ session('employee_data.avatar') }}">
+                <input type="hidden" name="old_avatar" value="{{ session('employee_data.old_avatar') }}">
                 @error('avatar')
                     <p style="color: red;">{{ $message }}</p>
                 @enderror

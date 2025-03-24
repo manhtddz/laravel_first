@@ -17,7 +17,7 @@ class AuthenticationMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         if (!Auth::check()) {
-            return redirect()->route('auth.admin')->with("error", "You are not login!");
+            return redirect()->route('auth.admin')->with(SESSION_ERROR, NOT_LOGIN_ERROR);
         }
         return $next($request);
     }

@@ -12,30 +12,19 @@ class TimeoutMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        // Lấy thời gian hiện tại
-        $currentTime = Carbon::now();
+        // Get current time
+        $start = microtime(true);
+        $response = $next($request);
 
-        // Kiểm tra xem session có lưu last_activity không
-        if (Session::has('last_activity')) {
-            $lastActivity = Carbon::parse(Session::get('last_activity'));
-            $inactiveTime = $lastActivity->diffInSeconds($currentTime);
+        $duration = microtime(true) - $start; // Get request time taken
 
-            \Log::info("🕒 Thời gian không hoạt động: [{$inactiveTime}] giây");
-
-            if ($inactiveTime > 5) { // Timeout sau 10 giây
-                \Log::warning("⚠️ User bị logout do không hoạt động!");
-
-                Auth::logout();
-                Session::invalidate();
-                Session::regenerateToken();
-
-                return redirect()->route('auth.admin')->with('error', 'Timeout');
-            }
+        if ($duration > 10) { // If request takes longer than 10 seconds
+            Auth::logout();
+            Session::invalidate();
+            \Log::warning("⏳ Request Timeout: URL {$request->fullUrl()} took {$duration} seconds.");
+            return redirect()->route('auth.admin')->with(SESSION_ERROR, 'Timeout');
         }
 
-        // Cập nhật session `last_activity`
-       
-
-        return $next($request);
+        return $response;
     }
 }

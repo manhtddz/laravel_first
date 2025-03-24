@@ -5,9 +5,7 @@ namespace App\Services\Repository;
 use App\Models\Employee;
 use App\Models\Team;
 use App\Services\Interfaces\IRepository;
-use DB;
 use Exception;
-use Illuminate\Database\Eloquent\Model;
 
 abstract class BaseRepository implements IRepository
 {
@@ -21,9 +19,8 @@ abstract class BaseRepository implements IRepository
     {
         try {
             return $this->model::find($id);
-            // return redirect()->route('user.index')->with('success', 'tao thanh cong');
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
     }
     public function findAll()
@@ -31,27 +28,24 @@ abstract class BaseRepository implements IRepository
         try {
             return $this->model::all();
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
     }
     public function findAllPaging($amount)
     {
         try {
-            // return $this->model->paginate(10, ['*'], 'page', $page);
             return $this->model::paginate($amount);
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
     }
     public function create(array $requestData)
     {
         try {
             unset($requestData['_token']);
-            // dd($requestData);
             $this->model::create($requestData);
-            // return redirect()->route('user.index')->with('success', 'tao thanh cong');
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
     }
     public function update($id, array $requestData)
@@ -61,7 +55,7 @@ abstract class BaseRepository implements IRepository
             unset($requestData['_token']);
             $item->update($requestData);
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
     }
     public function delete($id)
@@ -69,9 +63,8 @@ abstract class BaseRepository implements IRepository
         try {
             $item = $this->model::findOrFail($id);
             $item->delete();
-            // return redirect()->route('user.index')->with('success', 'delete thanh cong');
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
     }
     public function searchPaging($amount, array $requestData, $sort = null, $direction = 'asc')
@@ -81,8 +74,7 @@ abstract class BaseRepository implements IRepository
                 $requestData,
                 fn($value) => $value !== null && $value !== ''
             );
-            $columns = \Schema::getColumnListing((new $this->model())->getTable()); // Lấy danh sách cột từ model
-            // dd($columns);
+            $columns = \Schema::getColumnListing((new $this->model())->getTable()); // Take column list
             $query = $this->model::query();
             foreach ($filters as $key => $value) {
                 if ($key === 'name') {
@@ -112,7 +104,7 @@ abstract class BaseRepository implements IRepository
             return $query->paginate($amount);
 
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
 
     }

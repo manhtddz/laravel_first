@@ -7,8 +7,6 @@ use App\Services\Services\EmployeeService;
 use Illuminate\Http\Request;
 use App\Http\Requests\AuthRequest;
 use Illuminate\Support\Facades\Auth;
-use Session;
-use Str;
 
 class AuthController extends Controller
 {
@@ -24,35 +22,27 @@ class AuthController extends Controller
 
     public function login(AuthRequest $request)
     {
-        // $token = Str::random(40);
-
         $foundEmp = $this->employeeService->findActiveEmployeeByEmail($request->input('email'));
         if (empty($foundEmp)) {
             session()->put('login_email', $request->input('email'));
             $foundEmp = $this->employeeService->findNotActiveEmployeeByEmail($request->input('email'));
             if ($foundEmp) {
-                return redirect()->route('auth.admin')->with("emailError", "Login failed");
+                return redirect()->route('auth.admin')->with(SESSION_EMAIL_ERROR, LOGIN_FAILED);
             }
-            return redirect()->route('auth.admin')->with("emailError", "Email not found");
-        }
-        if ($foundEmp->del_flag == 1) {
-            session()->put('login_email', $request->input('email'));
-            return redirect()->route('auth.admin')->with("emailError", "Login failed");
+            return redirect()->route('auth.admin')->with(SESSION_EMAIL_ERROR, EMAIL_NOT_FOUND);
         }
         $credentials = [
             "email" => $request->input('email'),
             "password" => $request->input('password')
         ];
         if (Auth::attempt($credentials)) {
-            // Session::put('user_session_id', $token);
-            return redirect()->route('team.index')->with("success", "Login success");
+            return redirect()->route('team.index')->with(SESSION_SUCCESS, LOGIN_SUCCESS);
         }
         session()->put('login_email', $request->input('email'));
-        return redirect()->route('auth.admin')->with("emailError", "Login failed");
+        return redirect()->route('auth.admin')->with(SESSION_EMAIL_ERROR, LOGIN_FAILED);
     }
     public function logout(Request $request)
     {
-        // static
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerate();

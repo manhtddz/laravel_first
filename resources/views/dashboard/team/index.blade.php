@@ -1,16 +1,16 @@
 <div class="container mt-5">
     <h2 class="mb-4">Team - Search</h2>
-    @if (session('error'))
+    @if (session(SESSION_ERROR))
         <div class="alert alert-danger">
-            {{ session('error') }}
+            {{ session(SESSION_ERROR) }}
         </div>
     @endif
-    @if (session('success'))
+    @if (session(SESSION_SUCCESS))
         <div class="alert alert-primary">
-            {{ session('success') }}
+            {{ session(SESSION_SUCCESS) }}
         </div>
     @endif
-    <!-- Form tìm kiếm -->
+    <!-- Search form -->
     <form action="{{ route('team.index') }}" method="GET" class="mb-3">
         <div class="col-md-4">
             <label for="name" class="form-label">Name:</label>
@@ -19,23 +19,21 @@
             <p style="color: red;">{{ $error ?? '' }}</p>
 
         </div>
-        <!-- <div class="col-md-4 d-flex align-items-end">
-        </div> -->
         <div class="d-flex justify-content-between mt-3 w-100">
             <button type="submit" class="btn btn-primary me-2">Search</button>
 
             <a href="{{ route('team.index') }}" class="btn btn-secondary">Reset</a>
         </div>
     </form>
-    <!-- Hiển thị kết quả tìm kiếm -->
+    <!-- Result -->
     <h3>Search result:</h3>
     @if($teams->isNotEmpty())
         <table class="table table-bordered">
             <thead class="table-dark">
                 <tr>
-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'id', 'direction' => $newDirection]) }}"
+                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'id', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
                             class="text-white">ID ↕</a></th>
-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'name', 'direction' => $newDirection]) }}"
+                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'name', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
                             class="text-white">Team ↕</a></th>
                     <th>Action</th>
                 </tr>
@@ -61,7 +59,7 @@
         @if ($teams->hasPages())
 
             <ul class="pagination">
-                {{-- Nút First --}}
+                {{-- First --}}
                 @if ($teams->currentPage() > 1)
                     <li class="page-item">
                         <a class="page-link" href="{{ $teams->url(1) }}">First</a>
@@ -72,7 +70,7 @@
                     </li>
                 @endif
 
-                {{-- Nút Prev --}}
+                {{-- Prev --}}
                 @if($teams->onFirstPage())
                     <li class="page-item disabled">
                         <a class="page-link">Prev</a>
@@ -83,7 +81,7 @@
                     </li>
                 @endif
 
-                {{-- Các trang số --}}
+                {{-- Index page --}}
                 @for ($i = 1; $i <= $teams->lastPage(); $i++)
                     @if ($i == $teams->currentPage())
                         <li class="page-item active">
@@ -96,7 +94,7 @@
                     @endif
                 @endfor
 
-                {{-- Nút Next --}}
+                {{-- Next --}}
                 @if ($teams->hasMorePages())
                     <li class="page-item">
                         <a class="page-link" href="{{ $teams->nextPageUrl() }}">Next</a>
@@ -107,7 +105,7 @@
                     </li>
                 @endif
 
-                {{-- Nút Last --}}
+                {{-- Last --}}
                 @if ($teams->currentPage() < $teams->lastPage())
                     <li class="page-item">
                         <a class="page-link" href="{{ $teams->url($teams->lastPage()) }}">Last</a>
@@ -131,7 +129,7 @@
             </thead>
 
             <tr>
-                <td colspan="3">No result found</td>
+                <td colspan="3">{{ NO_RESULT }}</td>
             </tr>
         </table>
     @endif

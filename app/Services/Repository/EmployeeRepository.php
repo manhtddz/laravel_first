@@ -21,7 +21,7 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
                 ->where('del_flag', 1)
                 ->first();
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
     }
     public function findActiveEmployeeByEmail($email)
@@ -32,7 +32,7 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
                 ->where('del_flag', 0)
                 ->first();
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
     }
     public function findAllEmployeeId()
@@ -40,7 +40,7 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
         try {
             return Employee::all()->pluck('id')->toArray();
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
     }
     public function findAllSearchedId(array $requestData, $sort = null, $direction = 'asc')
@@ -51,11 +51,10 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
                 fn($value) => $value !== null && $value !== ''
             );
             $columns = \Schema::getColumnListing((new Employee())->getTable());
-            // dd($columns);
             $query = Employee::query();
             foreach ($filters as $key => $value) {
                 if ($key === 'name') {
-                    $query->where($key, 'like', '%' . $value . '%');
+                    $query->searchName($value);
                 }
                 if (in_array(strtolower($key), $columns)) {
                     if ($key === 'email') {
@@ -77,7 +76,7 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
             return $query->pluck("id")->toArray();
 
         } catch (Exception $e) {
-            dd($e->getMessage());
+            \Log::info($e->getMessage());
         }
 
     }

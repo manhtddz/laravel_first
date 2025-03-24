@@ -1,16 +1,16 @@
 <div class="container mt-5">
     <h2 class="mb-4">Employee - Search</h2>
-    @if (session('error'))
+    @if (session(SESSION_ERROR))
         <div class="alert alert-danger">
-            {{ session('error') }}
+            {{ session(SESSION_ERROR) }}
         </div>
     @endif
-    @if (session('success'))
+    @if (session(SESSION_SUCCESS))
         <div class="alert alert-primary">
-            {{ session('success') }}
+            {{ session(SESSION_SUCCESS) }}
         </div>
     @endif
-    <!-- Form tìm kiếm -->
+    <!-- Search Form -->
     <form action="{{ route('employee.index') }}" method="GET" class="mb-3">
         <div class="col-md-4">
             <label for="name" class="form-label">Name:</label>
@@ -37,7 +37,7 @@
             <a href="{{ route('employee.index') }}" class="btn btn-secondary">Reset</a>
         </div>
     </form>
-    <!-- Hiển thị kết quả tìm kiếm -->
+    <!-- Search result -->
     <h3>Search result:</h3>
     @if($employees->isNotEmpty())
 
@@ -53,14 +53,14 @@
         <table class="table table-bordered">
             <thead class="table-dark">
                 <tr>
-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'id', 'direction' => $newDirection]) }}"
+                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'id', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
                             class="text-white">ID ↕</a></th>
                     <th>Avatar</th>
-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'team_id', 'direction' => $newDirection]) }}"
+                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'team_id', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
                             class="text-white">Team ↕</a></th>
-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'name', 'direction' => $newDirection]) }}"
+                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'name', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
                             class="text-white">Name ↕</a></th>
-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'email', 'direction' => $newDirection]) }}"
+                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'email', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
                             class="text-white">Email ↕</a></th>
                     <th>Action</th>
                 </tr>
@@ -69,7 +69,7 @@
                 <tr>
                     <td>{{ $employee->id }}</td>
                     <td>
-                        <img src="{{ url('storage/app/' . $employee->avatar) }}" width="50" height="50" class="rounded-circle"
+                        <img src="{{ url(APP_URL . $employee->avatar) }}" width="50" height="50" class="rounded-circle"
                             title="{{ $employee->avatar ?? "Dont't have avatar" }}">
                     </td>
                     <td>
@@ -100,7 +100,7 @@
         @if ($employees->hasPages())
 
             <ul class="pagination">
-                {{-- Nút First --}}
+                {{-- First --}}
                 @if ($employees->currentPage() > 1)
                     <li class="page-item">
                         <a class="page-link" href="{{ $employees->url(1) }}">First</a>
@@ -111,7 +111,7 @@
                     </li>
                 @endif
 
-                {{-- Nút Prev --}}
+                {{-- Prev --}}
                 @if($employees->onFirstPage())
                     <li class="page-item disabled">
                         <a class="page-link">Prev</a>
@@ -122,7 +122,7 @@
                     </li>
                 @endif
 
-                {{-- Các trang số --}}
+                {{-- Index page --}}
                 @for ($i = 1; $i <= $employees->lastPage(); $i++)
                     @if ($i == $employees->currentPage())
                         <li class="page-item active">
@@ -135,7 +135,7 @@
                     @endif
                 @endfor
 
-                {{-- Nút Next --}}
+                {{-- Next --}}
                 @if ($employees->hasMorePages())
                     <li class="page-item">
                         <a class="page-link" href="{{ $employees->nextPageUrl() }}">Next</a>
@@ -146,7 +146,7 @@
                     </li>
                 @endif
 
-                {{-- Nút Last --}}
+                {{-- Last --}}
                 @if ($employees->currentPage() < $employees->lastPage())
                     <li class="page-item">
                         <a class="page-link" href="{{ $employees->url($employees->lastPage()) }}">Last</a>
@@ -172,7 +172,7 @@
             </thead>
 
             <tr>
-                <td colspan="3">No result found</td>
+                <td colspan="3">{{ NO_RESULT }}</td>
             </tr>
         </table>
     @endif

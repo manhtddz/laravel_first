@@ -19,7 +19,7 @@ use App\Models\Team;
                 @endphp
 
                 @if ($avatarPath)
-                    <img id="previewImage" src="{{ url('storage/temp/' . $avatarPath) }}" alt="Preview"
+                    <img id="previewImage" src="{{ url(TEMP_URL . $avatarPath) }}"
                         style="max-width: 200px; margin-top: 10px;">
                     <input type="hidden" name="avatar" value="{{ session('employee_data.avatar') }}">
                 @else

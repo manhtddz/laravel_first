@@ -13,18 +13,9 @@
         <div id="page-wrapper" class="gray-bg">
             @include('dashboard.component.nav')
             @include($config['template'])
-            <!-- @include('dashboard.component.footer') -->
-
         </div>
-
-
+        
     </div>
-
-    </div>
-
-    <!-- Mainly scripts -->
-
-
 </body>
 
 </html>
