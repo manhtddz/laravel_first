@@ -46,7 +46,7 @@ abstract class BaseRepository implements IRepository
     {
         try {
             unset($requestData['_token']);
-            $this->model::create($requestData);
+            return $this->model::create($requestData);
         } catch (Exception $e) {
             \Log::info($e->getMessage());
             return null;
@@ -57,7 +57,7 @@ abstract class BaseRepository implements IRepository
         try {
             $item = $this->model::findOrFail($id);
             unset($requestData['_token']);
-            $item->update($requestData);
+            return $item->update($requestData);
         } catch (Exception $e) {
             \Log::info($e->getMessage());
             return null;
@@ -67,7 +67,7 @@ abstract class BaseRepository implements IRepository
     {
         try {
             $item = $this->model::findOrFail($id);
-            $item->delete();
+            return $item->delete();
         } catch (Exception $e) {
             \Log::info($e->getMessage());
             return null;

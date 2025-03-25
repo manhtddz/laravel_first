@@ -53,15 +53,26 @@ class TeamService
     }
     public function create(array $request)
     {
-        return $this->teamRepository->create($request);
+        $result = $this->teamRepository->create($request);
+
+        if (empty($result)) {
+            throw new Exception(CREATE_FAILED);
+        }
+
+        return $result;
     }
     public function update(int $id, array $request)
     {
         $team = $this->teamRepository->findById($id);
+
         if (!$team) {
             throw new Exception(NOT_EXIST_ERROR);
         }
-        return $this->teamRepository->update($id, $request);
+        $result = $this->teamRepository->update($id, $request);
+        if (!$result) {
+            throw new Exception(UPDATE_FAILED);
+        }
+        return $result;
     }
     public function delete(int $id)
     {
@@ -69,16 +80,22 @@ class TeamService
         if (!$team) {
             throw new Exception(NOT_EXIST_ERROR);
         }
-        return $this->teamRepository->delete($id);
+        $result = $this->teamRepository->delete($id);
+        if (!$result) {
+            throw new Exception(DELETE_FAILED);
+        }
+        return $result;
     }
 
-    public function prepareConfirmForUpdate(TeamUpdateRequest $request){
+    public function prepareConfirmForUpdate(TeamUpdateRequest $request)
+    {
         $validatedData = $request->validated();
 
         session()->flash('team_data', $validatedData);
     }
 
-    public function prepareConfirmForCreate(TeamCreateRequest $request){
+    public function prepareConfirmForCreate(TeamCreateRequest $request)
+    {
         $validatedData = $request->validated();
 
         session()->flash('team_data', $validatedData);

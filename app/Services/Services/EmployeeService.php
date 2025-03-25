@@ -91,18 +91,28 @@ class EmployeeService
     {
         $this->fileService->moveTempFileToApp($request['avatar']);
 
+        $result = $this->employeeRepository->create($request);
+
+        if (empty($result)) {
+            throw new Exception(CREATE_FAILED);
+        }
+
         $emailGetter['email'] = $request['email'];
         $emailGetter['first_name'] = $request['first_name'];
         $emailGetter['last_name'] = $request['last_name'];
         SendEmployeeEmailJob::dispatch($emailGetter)->delay(now()->addSeconds(5));
 
-        return $this->employeeRepository->create($request);
+        return $result;
     }
     public function update(int $id, array $request)
     {
         $employee = $this->employeeRepository->findById($id);
         if (!$employee) {
             throw new Exception(NOT_EXIST_ERROR);
+        }
+        $result = $this->employeeRepository->update($id, $request);
+        if (!$result) {
+            throw new Exception(UPDATE_FAILED);
         }
         if ($request['avatar'] !== $request['old_avatar']) {
             $this->fileService->removeFile('app/' . $request['old_avatar']);
@@ -113,7 +123,7 @@ class EmployeeService
         $emailGetter['last_name'] = $request['last_name'];
         SendEmployeeEmailJob::dispatch($emailGetter)->delay(now()->addSeconds(5));
 
-        return $this->employeeRepository->update($id, $request);
+        return $result;
     }
     public function delete(int $id)
     {
@@ -121,7 +131,12 @@ class EmployeeService
         if (!$employee) {
             throw new Exception(NOT_EXIST_ERROR);
         }
-        return $this->employeeRepository->delete($id);
+        $result = $this->employeeRepository->delete($id);
+        if (!$result) {
+            throw new Exception(DELETE_FAILED);
+        }
+        
+        return $result;
     }
     public function prepareConfirmForUpdate($id, EmployeeUpdateRequest $request)
     {

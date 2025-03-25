@@ -1,0 +1,2872 @@
+diff --git a/app/Http/Controllers/AuthController.php b/app/Http/Controllers/AuthController.php
+index f3f6c41..7fc504f 100644
+--- a/app/Http/Controllers/AuthController.php
++++ b/app/Http/Controllers/AuthController.php
+@@ -7,8 +7,6 @@ use App\Services\Services\EmployeeService;
+ use Illuminate\Http\Request;
+ use App\Http\Requests\AuthRequest;
+ use Illuminate\Support\Facades\Auth;
+-use Session;
+-use Str;
+ 
+ class AuthController extends Controller
+ {
+@@ -24,35 +22,27 @@ class AuthController extends Controller
+ 
+     public function login(AuthRequest $request)
+     {
+-        // $token = Str::random(40);
+-
+         $foundEmp = $this->employeeService->findActiveEmployeeByEmail($request->input('email'));
+         if (empty($foundEmp)) {
+             session()->put('login_email', $request->input('email'));
+             $foundEmp = $this->employeeService->findNotActiveEmployeeByEmail($request->input('email'));
+             if ($foundEmp) {
+-                return redirect()->route('auth.admin')->with("emailError", "Login failed");
++                return redirect()->route('auth.admin')->with(SESSION_EMAIL_ERROR, LOGIN_FAILED);
+             }
+-            return redirect()->route('auth.admin')->with("emailError", "Email not found");
+-        }
+-        if ($foundEmp->del_flag == 1) {
+-            session()->put('login_email', $request->input('email'));
+-            return redirect()->route('auth.admin')->with("emailError", "Login failed");
++            return redirect()->route('auth.admin')->with(SESSION_EMAIL_ERROR, EMAIL_NOT_FOUND);
+         }
+         $credentials = [
+             "email" => $request->input('email'),
+             "password" => $request->input('password')
+         ];
+         if (Auth::attempt($credentials)) {
+-            // Session::put('user_session_id', $token);
+-            return redirect()->route('team.index')->with("success", "Login success");
++            return redirect()->route('team.index')->with(SESSION_SUCCESS, LOGIN_SUCCESS);
+         }
+         session()->put('login_email', $request->input('email'));
+-        return redirect()->route('auth.admin')->with("emailError", "Login failed");
++        return redirect()->route('auth.admin')->with(SESSION_EMAIL_ERROR, LOGIN_FAILED);
+     }
+     public function logout(Request $request)
+     {
+-        // static
+         Auth::logout();
+         $request->session()->invalidate();
+         $request->session()->regenerate();
+diff --git a/app/Http/Controllers/Controller.php b/app/Http/Controllers/Controller.php
+index 8677cd5..38bdf98 100644
+--- a/app/Http/Controllers/Controller.php
++++ b/app/Http/Controllers/Controller.php
+@@ -4,5 +4,5 @@ namespace App\Http\Controllers;
+ 
+ abstract class Controller
+ {
+-    //
++
+ }
+diff --git a/app/Http/Controllers/DashboardController.php b/app/Http/Controllers/DashboardController.php
+deleted file mode 100644
+index d94dae0..0000000
+--- a/app/Http/Controllers/DashboardController.php
++++ /dev/null
+@@ -1,27 +0,0 @@
+-<?php
+-
+-namespace App\Http\Controllers;
+-
+-use App\Http\Controllers\Controller;
+-use Illuminate\Http\Request;
+-use App\Http\Requests\AuthRequest;
+-use Illuminate\Support\Facades\Auth;
+-
+-class DashboardController extends Controller
+-{
+-    public function __construct()
+-    {
+-    }
+-    public function index()
+-    {
+-        $config = $this->config();
+-        return view('dashboard.layout', compact(['config']));
+-    }
+-    public function config()
+-    {
+-        return [
+-            'user' => Auth::user(),
+-            'template' => "dashboard.home.index",
+-        ];
+-    }
+-}
+diff --git a/app/Http/Controllers/EmployeeController.php b/app/Http/Controllers/EmployeeController.php
+index ba9ee99..aacc6c3 100644
+--- a/app/Http/Controllers/EmployeeController.php
++++ b/app/Http/Controllers/EmployeeController.php
+@@ -3,15 +3,12 @@
+ namespace App\Http\Controllers;
+ 
+ use App\Http\Requests\EmployeeCreateRequest;
+-use App\Http\Requests\EmployeeSearchRequest;
+ use App\Http\Requests\EmployeeUpdateRequest;
+-use App\Jobs\SendEmployeeEmailJob;
+ use App\Services\Services\EmployeeService;
+ use App\Services\Services\FileService;
+ use App\Services\Services\TeamService;
+ use Auth;
+ use Exception;
+-use Illuminate\Support\Facades\Storage;
+ use Illuminate\Http\Request;
+ class EmployeeController extends Controller
+ {
+@@ -26,27 +23,22 @@ class EmployeeController extends Controller
+     }
+     public function index(Request $request)
+     {
+-        // dd($request->all());
++        //Initial value
+         $teams = $this->teamService->findAll();
+-        $employees = $this->employeeService->findAllPaging();
+-        $employeeIds = $this->employeeService->findAllEmployeeId();
++        $sortBy = $request->input('sortBy');
++        $direction = $request->input('direction', 'asc');
+         $config = $this->config();
+-        $filtered = array_filter(
+-            $request->all(),
+-            fn($value) => $value !== "" && $value !== null && $value != 0
+-        );
+-        $sort = $_GET['sortBy'] ?? null;
+-        $direction = $_GET['direction'] ?? 'desc';
+-        $newDirection = $direction === 'asc' ? 'desc' : 'asc';
+-        if (!empty($filtered)) { // Chỉ gọi service nếu có dữ liệu tìm kiếm
+-            $employees = $this->employeeService->search($filtered, $sort, $direction)->appends($request->query());
+-            $employeeIds = $this->employeeService->findAllSearchedId($filtered, $sort, $direction);
+-        }
++
++        $employees = $this->employeeService
++            ->search($request->all(), $sortBy, $direction)
++            ->appends($request->query());
++        $employeeIds = $this->employeeService
++            ->findAllSearchedId($request->all(), $sortBy, $direction);
++
+         return view(
+             'dashboard.layout',
+-            compact(['config', 'employees', 'employeeIds', 'teams', 'sort', 'direction', 'newDirection'])
++            compact(['config', 'employees', 'employeeIds', 'teams', "direction"])
+         );
+-        // exit;
+     }
+     public function edit($id)
+     {
+@@ -54,10 +46,12 @@ class EmployeeController extends Controller
+             $teams = $this->teamService->findAll();
+             $employee = $this->employeeService->findById($id);
+             $config = $this->config();
++
+             $config['template'] = "dashboard.employee.update";
++
+             return view('dashboard.layout', compact(['config', 'employee', 'teams']));
+         } catch (Exception $e) {
+-            return redirect()->route('employee.index')->with('error', $e->getMessage());
++            return redirect()->route('employee.index')->with(SESSION_ERROR, $e->getMessage());
+         }
+     }
+ 
+@@ -65,110 +59,76 @@ class EmployeeController extends Controller
+     {
+         $teams = $this->teamService->findAll();
+         $config = $this->config();
++
+         $config['template'] = "dashboard.employee.create";
++
+         return view('dashboard.layout', compact(['config', 'teams']));
+     }
+ 
+     public function updateConfirm($id, EmployeeUpdateRequest $request)
+     {
++        //prepare data
++        $this->employeeService->prepareConfirmForUpdate($id, $request);
+ 
+-        $validatedData = $request->validated();
+-        if ($request->hasFile('avatar')) {
+-            session()->forget('temp_file');
+-            $filePath = $this->fileService->uploadTempFile($request->file('avatar'), $request->uploaded_avatar);
+-            $validatedData['avatar'] = $filePath;
+-        } else {
+-            $validatedData['avatar'] = $request->uploaded_avatar;
+-        }
+-        $validatedData['old_avatar'] = $request->old_avatar;
+-
+-        $validatedData['id'] = $id;
+-        // dd($validatedData);
+-        session()->flash('employee_data', $validatedData);
+         $config = $this->config();
+         $config['template'] = "dashboard.employee.update_confirm";
++
+         return view('dashboard.layout', compact(['config', 'id']));
+     }
+     public function showUpdateConfirm()
+     {
+-        // Kiểm tra session có dữ liệu hay không
++        // Check exists data
+         if (!session()->has('employee_data')) {
+-            return redirect()->route('employee.index')->with('error', "Can't go to this page directly");
++            return redirect()->route('employee.index')->with(SESSION_ERROR, ERROR_ACCESS_DENIED);
+         }
+ 
+         $config = $this->config();
+         $config['template'] = "dashboard.employee.update_confirm";
++
+         return view('dashboard.layout', compact(['config']));
+     }
+     public function createConfirm(EmployeeCreateRequest $request)
+     {
+-        $validatedData = $request->validated();
+-        // if ($request->hasFile('file')) {
+-        //     $file = $request->file('file')->store('uploads');
+-        // } elseif ($request->filled('temp_file')) {
+-        //     $file = $request->input('temp_file'); // Dùng file tạm
+-        // } else {
+-        //     $file = null;
+-        // }
+-        if ($request->hasFile('avatar')) {
+-            // dd($request->old_avatar);
+-            session()->forget('temp_file');
+-            $filePath = $this->fileService->uploadTempFile($request->file('avatar'), $request->old_avatar);
+-            $validatedData['avatar'] = $filePath;
+-        } else {
+-            // dd($request->old_avatar);
+-            $validatedData['avatar'] = $request->old_avatar;
+-        }
+-        // dd($validatedData);
+-        session()->flash('employee_data', $validatedData);
++        //prepare data
++        $this->employeeService->prepareConfirmForCreate($request);
++
+         $config = $this->config();
+         $config['template'] = "dashboard.employee.create_confirm";
++
+         return view('dashboard.layout', compact(['config']));
+     }
+     public function showCreateConfirm()
+     {
+-        // Kiểm tra session có dữ liệu hay không
++        // Check exists data
+         if (!session()->has('employee_data')) {
+-            return redirect()->route('employee.create')->with('error', 'Please fill blank field');
++            return redirect()->route('employee.create')->with(SESSION_ERROR, ERROR_ACCESS_DENIED);
+         }
+ 
+         $config = $this->config();
+         $config['template'] = "dashboard.employee.create_confirm";
++
+         return view('dashboard.layout', compact(['config']));
+     }
+     public function update(Request $request, $id)
+     {
+         try {
+-            $this->fileService->removeFile('app/' . session('employee_data.old_avatar', ''));
+-            // dd($request->avatar);
+-            $this->fileService->moveTempFileToApp($request->avatar);
+             $this->employeeService->update($id, $request->all());
+ 
+-            $emailGetter['email'] = $request->email;
+-            $emailGetter['first_name'] = $request->first_name;
+-            $emailGetter['last_name'] = $request->last_name;
+-            SendEmployeeEmailJob::dispatch($emailGetter)->delay(now()->addSeconds(5));
+-            session()->forget('temp_file');
+-            return redirect()->route('employee.index')->with('success', 'Update successfully');
++            return redirect()->route('employee.index')->with(SESSION_SUCCESS, UPDATE_SUCCESS);
+         } catch (Exception $e) {
+             $this->fileService->removeFile($request->avatar);
+-            return redirect()->back()->with('error', $e->getMessage());
++            return redirect()->back()->with(SESSION_ERROR, $e->getMessage());
+         }
+     }
+     public function create(Request $request)
+     {
+-        session()->forget('temp_file');
+         try {
+             $this->employeeService->create($request->all());
+-            $this->fileService->moveTempFileToApp($request->avatar);
+-            $emailGetter['email'] = $request->email;
+-            $emailGetter['first_name'] = $request->first_name;
+-            $emailGetter['last_name'] = $request->last_name;
+-            SendEmployeeEmailJob::dispatch($emailGetter)->delay(now()->addSeconds(5));
+-            return redirect()->route('employee.index')->with('success', 'Create successfully');
++
++            return redirect()->route('employee.index')->with(SESSION_SUCCESS, CREATE_SUCCESS);
+         } catch (Exception $e) {
+             $this->fileService->removeFile($request->avatar);
+-            return redirect()->back()->with('error', $e->getMessage());
++            return redirect()->back()->with(SESSION_ERROR, $e->getMessage());
+         }
+     }
+ 
+@@ -176,19 +136,18 @@ class EmployeeController extends Controller
+     {
+         try {
+             $this->employeeService->delete($id);
+-            return redirect()->route('employee.index')->with('success', 'Delete successfully');
++
++            return redirect()->route('employee.index')->with(SESSION_SUCCESS, DELETE_SUCCESS);
+         } catch (Exception $e) {
+-            return redirect()->back()->with('error', $e->getMessage());
++            return redirect()->back()->with(SESSION_ERROR, $e->getMessage());
+         }
+     }
+ 
+     public function export(Request $request)
+     {
+-        $ids = $request->input('ids'); // Lấy danh sách ID từ body
++        $ids = $request->input('ids'); // Get id list form request
+ 
+         $this->employeeService->exportToCSV(explode(', ', $ids));
+-        // ob_end_clean();
+-        // return redirect()->route('employee.index');
+     }
+ 
+     public function config()
+diff --git a/app/Http/Controllers/TeamController.php b/app/Http/Controllers/TeamController.php
+index 62dfd27..5534228 100644
+--- a/app/Http/Controllers/TeamController.php
++++ b/app/Http/Controllers/TeamController.php
+@@ -3,7 +3,6 @@
+ namespace App\Http\Controllers;
+ 
+ use App\Http\Requests\TeamCreateRequest;
+-use App\Http\Requests\TeamSearchRequest;
+ use App\Http\Requests\TeamUpdateRequest;
+ use App\Services\Services\TeamService;
+ use Auth;
+@@ -19,72 +18,76 @@ class TeamController extends Controller
+     }
+     public function index(Request $request)
+     {
+-        // dd($request->all());
+-        $teams = $this->teamService->findAllPaging();
++        //initial value
++        $sortBy = $request->input('sortBy');
++        $direction = $request->input('direction', 'asc');
+         $config = $this->config();
+-        $filtered = array_filter(
+-            $request->all(),
+-            fn($value) => $value !== "" && $value !== null
++
++        $teams = $this->teamService
++            ->search($request->all(), $sortBy, $direction)
++            ->appends($request->query());
++
++        return view(
++            'dashboard.layout',
++            compact(['config', 'teams', 'direction'])
+         );
+-        $sort = $_GET['sortBy'] ?? null;
+-        $direction = $_GET['direction'] ?? 'desc';
+-        $newDirection = $direction === 'asc' ? 'desc' : 'asc';
+-        if (!empty($filtered)) { // Chỉ gọi service nếu có dữ liệu tìm kiếm
+-            $teams = $this->teamService->search($filtered, $sort, $direction)->appends($request->query());
+-        }
+-        return view('dashboard.layout', compact(['config', 'teams', 'sort', 'direction', 'newDirection']));
+     }
+     public function edit($id)
+     {
+         try {
+             $team = $this->teamService->findById($id);
+             $config = $this->config();
++
+             $config['template'] = "dashboard.team.update";
++
+             return view('dashboard.layout', compact(['config', 'team']));
+         } catch (Exception $e) {
+-            return redirect()->route('team.index')->with('error', $e->getMessage());
++            return redirect()->route('team.index')->with(SESSION_ERROR, $e->getMessage());
+         }
+     }
+     public function getCreateForm()
+     {
+         $config = $this->config();
+         $config['template'] = "dashboard.team.create";
++
+         return view('dashboard.layout', compact(['config']));
+     }
+ 
+     public function updateConfirm($id, TeamUpdateRequest $request)
+     {
+-        $validatedData = $request->validated();
+-        session()->flash('team_data', $validatedData);
++        $this->teamService->prepareConfirmForUpdate($request);
++
+         $config = $this->config();
+         $config['template'] = "dashboard.team.update_confirm";
++
+         return view('dashboard.layout', compact(['config', 'id']));
+     }
+     public function showUpdateConfirm()
+     {
+-
+-        // Kiểm tra session có dữ liệu hay không
++        // Check exists data
+         if (!session()->has('team_data')) {
+-            return redirect()->route('team.index')->with('error', "Can't go to this page directly");
++            return redirect()->route('team.index')->with(SESSION_ERROR, ERROR_ACCESS_DENIED);
+         }
+ 
+         $config = $this->config();
+         $config['template'] = "dashboard.team.update_confirm";
++
+         return view('dashboard.layout', compact(['config']));
+     }
+     public function createConfirm(TeamCreateRequest $request)
+     {
+-        $validatedData = $request->validated();
+-        session()->flash('team_data', $validatedData);
++        $this->teamService->prepareConfirmForCreate($request);
++
+         $config = $this->config();
+         $config['template'] = "dashboard.team.create_confirm";
++
+         return view('dashboard.layout', compact(['config']));
+     }
+     public function showCreateConfirm()
+     {
+-        // Kiểm tra session có dữ liệu hay không
++        // Check exists data
+         if (!session()->has('team_data')) {
+-            return redirect()->route('team.create')->with('error', 'Please fill blank field');
++            return redirect()->route('team.create')->with(SESSION_ERROR, ERROR_ACCESS_DENIED);
+         }
+ 
+         $config = $this->config();
+@@ -94,21 +97,20 @@ class TeamController extends Controller
+ 
+     public function update(Request $request, $id)
+     {
+-        // sleep(10);
+         try {
+             $this->teamService->update($id, $request->all());
+-            return redirect()->route('team.index')->with('success', 'Update successfully');
++            return redirect()->route('team.index')->with(SESSION_SUCCESS, UPDATE_SUCCESS);
+         } catch (Exception $e) {
+-            return redirect()->back()->with('error', $e->getMessage());
++            return redirect()->back()->with(SESSION_ERROR, $e->getMessage());
+         }
+     }
+     public function create(Request $request)
+     {
+         try {
+             $this->teamService->create($request->all());
+-            return redirect()->route('team.index')->with('success', 'Create successfully');
++            return redirect()->route('team.index')->with(SESSION_SUCCESS, CREATE_SUCCESS);
+         } catch (Exception $e) {
+-            return redirect()->back()->with('error', $e->getMessage());
++            return redirect()->back()->with(SESSION_ERROR, $e->getMessage());
+         }
+     }
+ 
+@@ -116,9 +118,9 @@ class TeamController extends Controller
+     {
+         try {
+             $this->teamService->delete($id);
+-            return redirect()->route('team.index')->with('success', 'Delete successfully');
++            return redirect()->route('team.index')->with(SESSION_SUCCESS, DELETE_SUCCESS);
+         } catch (Exception $e) {
+-            return redirect()->route('team.index')->with('error', $e->getMessage());
++            return redirect()->route('team.index')->with(SESSION_ERROR, $e->getMessage());
+         }
+     }
+ 
+diff --git a/app/Http/Middleware/AuthenticationMiddleware.php b/app/Http/Middleware/AuthenticationMiddleware.php
+index cab3ebd..0fb7075 100644
+--- a/app/Http/Middleware/AuthenticationMiddleware.php
++++ b/app/Http/Middleware/AuthenticationMiddleware.php
+@@ -17,7 +17,7 @@ class AuthenticationMiddleware
+     public function handle(Request $request, Closure $next): Response
+     {
+         if (!Auth::check()) {
+-            return redirect()->route('auth.admin')->with("error", "You are not login!");
++            return redirect()->route('auth.admin')->with(SESSION_ERROR, NOT_LOGIN_ERROR);
+         }
+         return $next($request);
+     }
+diff --git a/app/Http/Middleware/ClearSessionTempFileMiddleware.php b/app/Http/Middleware/ClearSessionTempFileMiddleware.php
+index 2bf156b..40d0189 100644
+--- a/app/Http/Middleware/ClearSessionTempFileMiddleware.php
++++ b/app/Http/Middleware/ClearSessionTempFileMiddleware.php
+@@ -4,8 +4,6 @@ namespace App\Http\Middleware;
+ 
+ use Closure;
+ use Illuminate\Http\Request;
+-use Illuminate\Support\Facades\Auth;
+-use Storage;
+ use Symfony\Component\HttpFoundation\Response;
+ 
+ class ClearSessionTempFileMiddleware
+diff --git a/app/Http/Middleware/ClearTempFileMiddleware.php b/app/Http/Middleware/ClearTempFileMiddleware.php
+index f1fc727..7c347a1 100644
+--- a/app/Http/Middleware/ClearTempFileMiddleware.php
++++ b/app/Http/Middleware/ClearTempFileMiddleware.php
+@@ -4,7 +4,6 @@ namespace App\Http\Middleware;
+ 
+ use Closure;
+ use Illuminate\Http\Request;
+-use Illuminate\Support\Facades\Auth;
+ use Storage;
+ use Symfony\Component\HttpFoundation\Response;
+ 
+diff --git a/app/Http/Middleware/SingleAccountMiddleware.php b/app/Http/Middleware/SingleAccountMiddleware.php
+deleted file mode 100644
+index b437630..0000000
+--- a/app/Http/Middleware/SingleAccountMiddleware.php
++++ /dev/null
+@@ -1,35 +0,0 @@
+-<?php
+-
+-namespace App\Http\Middleware;
+-
+-use Closure;
+-use Illuminate\Http\Request;
+-use Illuminate\Support\Facades\Auth;
+-use Session;
+-use Symfony\Component\HttpFoundation\Response;
+-
+-class SingleAccountMiddleware
+-{
+-    /**
+-     * Handle an incoming request.
+-     *
+-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+-     */
+-    public function handle(Request $request, Closure $next)
+-    {
+-        \Log::info('Middleware đã chạy');
+-        \Log::info('User Session ID: ' . Session::get('user_session_id'));
+-        \Log::info('Current Session ID: ' . Session::getId());
+-        if (Auth::check()) {
+-            // Nếu session hiện tại không trùng với session khi đăng nhập -> logout
+-            if (Session::get('user_session_id') !== Session::getId()) {
+-               
+-                Auth::logout();
+-                Session::flush(); // Xóa session để tránh lưu thông tin cũ
+-                return redirect(route('auth.admin'))->with('error', 'Bạn đã đăng nhập ở tab khác.');
+-            }
+-        }
+-
+-        return $next($request);
+-    }
+-}
+diff --git a/app/Http/Middleware/TimeTrackMiddleware.php b/app/Http/Middleware/TimeTrackMiddleware.php
+deleted file mode 100644
+index 974bb4e..0000000
+--- a/app/Http/Middleware/TimeTrackMiddleware.php
++++ /dev/null
+@@ -1,24 +0,0 @@
+-<?php
+-
+-namespace App\Http\Middleware;
+-
+-use Closure;
+-use Illuminate\Http\Request;
+-use Illuminate\Support\Facades\Auth;
+-use Illuminate\Support\Facades\Session;
+-use Carbon\Carbon;
+-use Ramsey\Uuid\Type\Time;
+-
+-class TimeTrackMiddleware
+-{
+-    public function handle(Request $request, Closure $next)
+-    {
+-        // Lấy thời gian hiện tại
+-        $currentTime = Carbon::now();
+-        Session::put('last_activity', $currentTime->toDateTimeString());
+-        Session::save();
+-
+-        \Log::info("✅ Cập nhật `last_activity`: " . Session::get('last_activity'));
+-        return $next($request);
+-    }
+-}
+diff --git a/app/Http/Middleware/TimeoutMiddleware.php b/app/Http/Middleware/TimeoutMiddleware.php
+index 324f248..c65bc05 100644
+--- a/app/Http/Middleware/TimeoutMiddleware.php
++++ b/app/Http/Middleware/TimeoutMiddleware.php
+@@ -6,36 +6,24 @@ use Closure;
+ use Illuminate\Http\Request;
+ use Illuminate\Support\Facades\Auth;
+ use Illuminate\Support\Facades\Session;
+-use Carbon\Carbon;
+ 
+ class TimeoutMiddleware
+ {
+     public function handle(Request $request, Closure $next)
+     {
+-        // Lấy thời gian hiện tại
+-        $currentTime = Carbon::now();
++        // Get current time
++        $start = microtime(true);
++        $response = $next($request);
+ 
+-        // Kiểm tra xem session có lưu last_activity không
+-        if (Session::has('last_activity')) {
+-            $lastActivity = Carbon::parse(Session::get('last_activity'));
+-            $inactiveTime = $lastActivity->diffInSeconds($currentTime);
++        $duration = microtime(true) - $start; // Get request time taken
+ 
+-            \Log::info("🕒 Thời gian không hoạt động: [{$inactiveTime}] giây");
+-
+-            if ($inactiveTime > 5) { // Timeout sau 10 giây
+-                \Log::warning("⚠️ User bị logout do không hoạt động!");
+-
+-                Auth::logout();
+-                Session::invalidate();
+-                Session::regenerateToken();
+-
+-                return redirect()->route('auth.admin')->with('error', 'Timeout');
+-            }
++        if ($duration > 10) { // If request takes longer than 10 seconds
++            Auth::logout();
++            Session::invalidate();
++            \Log::warning("⏳ Request Timeout: URL {$request->fullUrl()} took {$duration} seconds.");
++            return redirect()->route('auth.admin')->with(SESSION_ERROR, 'Timeout');
+         }
+ 
+-        // Cập nhật session `last_activity`
+-       
+-
+-        return $next($request);
++        return $response;
+     }
+ }
+diff --git a/app/Http/Requests/AuthRequest.php b/app/Http/Requests/AuthRequest.php
+index 48f2e00..aa7a299 100644
+--- a/app/Http/Requests/AuthRequest.php
++++ b/app/Http/Requests/AuthRequest.php
+@@ -19,14 +19,4 @@ class AuthRequest extends FormRequest
+             'password' => ['required']
+         ];
+     }
+-
+-    public function messages(): array
+-    {
+-        return [
+-            'email.required' => 'Email can not be blank',
+-            'email.email' => 'Wrong email format',
+-
+-            'password.required' => 'Password can not be blank'
+-        ];
+-    }
+ }
+diff --git a/app/Http/Requests/EmployeeCreateRequest.php b/app/Http/Requests/EmployeeCreateRequest.php
+index 7b202df..d2e9239 100644
+--- a/app/Http/Requests/EmployeeCreateRequest.php
++++ b/app/Http/Requests/EmployeeCreateRequest.php
+@@ -29,79 +29,23 @@ class EmployeeCreateRequest extends FormRequest
+                 'email',
+                 'max:128',
+                 Rule::unique('m_employees', 'email')->where(function ($query) {
+-                    return $query->whereNot('del_flag', 1);
++                    return $query->whereNot('del_flag', IS_DELETED);
+                 })
+             ],
+             'first_name' => ['required', 'string', 'max:128'],
+             'last_name' => ['required', 'string', 'max:128'],
+             'password' => ['required', 'string', 'min:6', 'max:64'],
+-            'gender' => ['required', 'in:1,2', 'integer'], // 1 = Nam, 2 = Nữ
++            'gender' => ['required', 'in:1,2', 'integer'],
+             'birthday' => ['required', 'date', 'before:today'],
+             'address' => ['required', 'string', 'max:256'],
+-            'avatar' => ['nullable', 'image', 'mimes:jpg,png,jpeg', 'max:128'], // Hoặc dùng ['nullable', 'image', 'mimes:jpg,png,jpeg']
++            'avatar' => ['nullable', 'image', 'mimes:jpg,png,jpeg', 'max:128'],
+             'salary' => ['required', 'integer', 'min:0'],
+-            'position' => ['required', 'in:1,2,3,4,5', 'integer'], // Giả sử các vị trí có giá trị A, B, C
+-            'status' => ['required', 'in:1,2', 'integer'], // 2 = Không hoạt động, 1 = Hoạt động
+-            'type_of_work' => ['required', 'in:1,2,3,4', 'integer'], // F = Full-time, P = Part-time, C = Contract
+-        ];
+-    }
+-    public function messages(): array
+-    {
+-        return [
+-            'team_id.required' => 'Team ID is required.',
+-            'team_id.integer' => 'Team ID must be an integer.',
+-
+-            'email.required' => 'Email is required.',
+-            'email.email' => 'Invalid email format.',
+-            'email.max' => 'Email must not exceed 128 characters.',
+-            'email.unique' => 'This email has already been taken.',
+-
+-            'first_name.required' => 'First name is required.',
+-            'first_name.string' => 'First name must be a string.',
+-            'first_name.max' => 'First name must not exceed 128 characters.',
+-
+-            'last_name.required' => 'Last name is required.',
+-            'last_name.string' => 'Last name must be a string.',
+-            'last_name.max' => 'Last name must not exceed 128 characters.',
+-
+-            'password.required' => 'Password is required.',
+-            'password.string' => 'Password must be a string.',
+-            'password.min' => 'Password must be at least 6 characters.',
+-            'password.max' => 'Password must not exceed 64 characters.',
+-
+-            'gender.required' => 'Gender is required.',
+-            'gender.in' => 'Gender must be 1 (Male) or 2 (Female).',
+-            'gender.integer' => 'Gender must be an integer.',
+-
+-            'birthday.required' => 'Birthday is required.',
+-            'birthday.date' => 'Invalid date format.',
+-
+-            'address.required' => 'Address is required.',
+-            'address.string' => 'Address must be a string.',
+-            'address.max' => 'Address must not exceed 256 characters.',
+-
+-            'avatar.image' => 'Avatar must be an image file.',
+-            'avatar.mimes' => 'Avatar must be a JPG, PNG, or JPEG file.',
+-            'avatar.max' => 'Avatar size must not exceed 5MB.',
+-
+-            'salary.required' => 'Salary is required.',
+-            'salary.integer' => 'Salary must be an integer.',
+-            'salary.min' => 'Salary must be at least 0.',
+-
+-            'position.required' => 'Position is required.',
+-            'position.in' => 'Position must be one of: 1, 2, 3, 4, 5.',
+-            'position.integer' => 'Position must be an integer.',
+-
+-            'status.required' => 'Status is required.',
+-            'status.in' => 'Status must be 1 (On working) or 2 (Retired).',
+-            'status.integer' => 'Status must be an integer.',
+-
+-            'type_of_work.required' => 'Type of work is required.',
+-            'type_of_work.in' => 'Type of work must be one of: 1, 2, 3, 4.',
+-            'type_of_work.integer' => 'Type of work must be an integer.',
+-
++            'position' => ['required', 'in:1,2,3,4,5', 'integer'],
++            'status' => ['required', 'in:1,2', 'integer'],
++            'type_of_work' => ['required', 'in:1,2,3,4', 'integer'],
+         ];
+     }
++   
+     protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+     {
+         $this->storeTempFile();
+@@ -113,7 +57,7 @@ class EmployeeCreateRequest extends FormRequest
+         if ($this->hasFile('avatar')) {
+             $file = $this->file('avatar');
+             if (in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/jpg'])) {
+-                $path = $file->store('temp', 'public'); // Lưu vào storage/temp
++                $path = $file->store('temp', 'public'); // temporary store in storage/temp
+                 $tempFileName = str_replace('temp/', '', $path);
+                 session()->put('temp_file', $tempFileName);
+             } else {
+diff --git a/app/Http/Requests/EmployeeSearchRequest.php b/app/Http/Requests/EmployeeSearchRequest.php
+deleted file mode 100644
+index 45358d1..0000000
+--- a/app/Http/Requests/EmployeeSearchRequest.php
++++ /dev/null
+@@ -1,28 +0,0 @@
+-<?php
+-
+-namespace App\Http\Requests;
+-
+-use Illuminate\Foundation\Http\FormRequest;
+-
+-class EmployeeSearchRequest extends FormRequest
+-{
+-    /**
+-     * Determine if the user is authorized to make this request.
+-     */
+-    public function authorize(): bool
+-    {
+-        return true;
+-    }
+-
+-    /**
+-     * Get the validation rules that apply to the request.
+-     *
+-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+-     */
+-    public function rules(): array
+-    {
+-        return [
+-            
+-        ];
+-    }
+-}
+diff --git a/app/Http/Requests/EmployeeUpdateRequest.php b/app/Http/Requests/EmployeeUpdateRequest.php
+index d60f6df..7463bea 100644
+--- a/app/Http/Requests/EmployeeUpdateRequest.php
++++ b/app/Http/Requests/EmployeeUpdateRequest.php
+@@ -33,77 +33,19 @@ class EmployeeUpdateRequest extends FormRequest
+                 Rule::unique('m_employees', 'email')
+                     ->ignore($id)
+                     ->where(function ($query) {
+-                        return $query->whereNot('del_flag', 1);
++                        return $query->whereNot('del_flag', IS_DELETED);
+                     })
+             ],
+             'first_name' => ['required', 'string', 'max:128'],
+             'last_name' => ['required', 'string', 'max:128'],
+-            // 'password' => ['required', 'string', 'min:6', 'max:64'],
+-            'gender' => ['required', 'in:1,2', 'integer'], // 1 = Nam, 2 = Nữ
++            'gender' => ['required', 'in:1,2', 'integer'],
+             'birthday' => ['required', 'date', 'before:today'],
+             'address' => ['required', 'string', 'max:256'],
+-            'avatar' => ['nullable', 'image', 'mimes:jpg,png,jpeg', 'max:128'], // Hoặc dùng ['nullable', 'image', 'mimes:jpg,png,jpeg']
++            'avatar' => ['nullable', 'image', 'mimes:jpg,png,jpeg', 'max:128'],
+             'salary' => ['required', 'integer', 'min:0'],
+-            'position' => ['required', 'in:1,2,3,4,5', 'integer'], // Giả sử các vị trí có giá trị A, B, C
+-            'status' => ['required', 'in:1,2', 'integer'], // 2 = Không hoạt động, 1 = Hoạt động
+-            'type_of_work' => ['required', 'in:1,2,3,4', 'integer'], // F = Full-time, P = Part-time, C = Contract
+-        ];
+-    }
+-    public function messages(): array
+-    {
+-        return [
+-            'team_id.required' => 'Team ID is required.',
+-            'team_id.integer' => 'Team ID must be an integer.',
+-
+-            'email.required' => 'Email is required.',
+-            'email.email' => 'Invalid email format.',
+-            'email.max' => 'Email must not exceed 128 characters.',
+-            'email.unique' => 'This email has already been taken.',
+-
+-            'first_name.required' => 'First name is required.',
+-            'first_name.string' => 'First name must be a string.',
+-            'first_name.max' => 'First name must not exceed 128 characters.',
+-
+-            'last_name.required' => 'Last name is required.',
+-            'last_name.string' => 'Last name must be a string.',
+-            'last_name.max' => 'Last name must not exceed 128 characters.',
+-
+-            // 'password.required' => 'Password is required.',
+-            // 'password.string' => 'Password must be a string.',
+-            // 'password.min' => 'Password must be at least 6 characters.',
+-            // 'password.max' => 'Password must not exceed 64 characters.',
+-
+-            'gender.required' => 'Gender is required.',
+-            'gender.in' => 'Gender must be 1 (Male) or 2 (Female).',
+-            'gender.integer' => 'Gender must be an integer.',
+-
+-            'birthday.required' => 'Birthday is required.',
+-            'birthday.date' => 'Invalid date format.',
+-
+-            'address.required' => 'Address is required.',
+-            'address.string' => 'Address must be a string.',
+-            'address.max' => 'Address must not exceed 256 characters.',
+-
+-            'avatar.image' => 'Avatar must be an image file.',
+-            'avatar.mimes' => 'Avatar must be a JPG, PNG, or JPEG file.',
+-            'avatar.max' => 'Avatar size must not exceed 5MB.',
+-
+-            'salary.required' => 'Salary is required.',
+-            'salary.integer' => 'Salary must be an integer.',
+-            'salary.min' => 'Salary must be at least 0.',
+-
+-            'position.required' => 'Position is required.',
+-            'position.in' => 'Position must be one of: 1, 2, 3, 4, 5.',
+-            'position.integer' => 'Position must be an integer.',
+-
+-            'status.required' => 'Status is required.',
+-            'status.in' => 'Status must be 1 (On working) or 2 (Retired).',
+-            'status.integer' => 'Status must be an integer.',
+-
+-            'type_of_work.required' => 'Type of work is required.',
+-            'type_of_work.in' => 'Type of work must be one of: 1, 2, 3, 4.',
+-            'type_of_work.integer' => 'Type of work must be an integer.',
+-
++            'position' => ['required', 'in:1,2,3,4,5', 'integer'],
++            'status' => ['required', 'in:1,2', 'integer'],
++            'type_of_work' => ['required', 'in:1,2,3,4', 'integer'],
+         ];
+     }
+ 
+@@ -118,14 +60,13 @@ class EmployeeUpdateRequest extends FormRequest
+         if ($this->hasFile('avatar')) {
+             $file = $this->file('avatar');
+             if (in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/jpg'])) {
+-                $path = $file->store('temp', 'public'); // Lưu vào storage/temp
++                $path = $file->store('temp', 'public'); // temporary store in storage/temp
+                 $tempFileName = str_replace('temp/', '', $path);
+                 session()->put('temp_file', $tempFileName);
+             } else {
+                 session()->put('temp_file', $this->input('uploaded_avatar'));
+             }
+         } elseif ($this->has('uploaded_avatar')) {
+-            // dd($this->input('uploaded_avatar'));
+             session()->put('temp_file', $this->input('uploaded_avatar'));
+         }
+     }
+diff --git a/app/Http/Requests/TeamCreateRequest.php b/app/Http/Requests/TeamCreateRequest.php
+index a085d3b..7bde2fe 100644
+--- a/app/Http/Requests/TeamCreateRequest.php
++++ b/app/Http/Requests/TeamCreateRequest.php
+@@ -27,17 +27,9 @@ class TeamCreateRequest extends FormRequest
+                 'required',
+                 'max:128',
+                 Rule::unique('m_teams', 'name')->where(function ($query) {
+-                    return $query->whereNot('del_flag', 1);
++                    return $query->whereNot('del_flag', IS_DELETED);
+                 }),
+             ],
+         ];
+     }
+-    public function messages(): array
+-    {
+-        return [
+-            'name.required' => 'Name cannot be blank',
+-            'name.max' => 'Name length is < 128',
+-            'name.unique' => 'Name is existed',
+-        ];
+-    }
+ }
+diff --git a/app/Http/Requests/TeamSearchRequest.php b/app/Http/Requests/TeamSearchRequest.php
+deleted file mode 100644
+index 879d8ed..0000000
+--- a/app/Http/Requests/TeamSearchRequest.php
++++ /dev/null
+@@ -1,37 +0,0 @@
+-<?php
+-
+-namespace App\Http\Requests;
+-
+-use Illuminate\Foundation\Http\FormRequest;
+-use Illuminate\Validation\Rule;
+-
+-class TeamSearchRequest extends FormRequest
+-{
+-    /**
+-     * Determine if the user is authorized to make this request.
+-     */
+-    public function authorize(): bool
+-    {
+-        return true;
+-    }
+-
+-    /**
+-     * Get the validation rules that apply to the request.
+-     *
+-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+-     */
+-    public function rules(): array
+-    {
+-        return [
+-            "name" => [
+-                'max:128',
+-            ],
+-        ];
+-    }
+-    public function messages(): array
+-    {
+-        return [
+-            'name.max' => 'Name length is < 128',
+-        ];
+-    }
+-}
+diff --git a/app/Http/Requests/TeamUpdateRequest.php b/app/Http/Requests/TeamUpdateRequest.php
+index 0ace9ca..2a0a4ce 100644
+--- a/app/Http/Requests/TeamUpdateRequest.php
++++ b/app/Http/Requests/TeamUpdateRequest.php
+@@ -30,17 +30,9 @@ class TeamUpdateRequest extends FormRequest
+                 Rule::unique('m_teams', 'name')
+                     ->ignore($id)
+                     ->where(function ($query) {
+-                        return $query->whereNot('del_flag', 1);
++                        return $query->whereNot('del_flag', IS_DELETED);
+                     }),
+             ],
+         ];
+     }
+-    public function messages(): array
+-    {
+-        return [
+-            'name.required' => 'Name cannot be blank',
+-            'name.max' => 'Name length is < 128',
+-            'name.unique' => 'Name is existed',
+-        ];
+-    }
+ }
+diff --git a/app/Mail/EmployeeMail.php b/app/Mail/EmployeeMail.php
+index 34e00ef..47388a5 100644
+--- a/app/Mail/EmployeeMail.php
++++ b/app/Mail/EmployeeMail.php
+@@ -2,9 +2,7 @@
+ 
+ namespace App\Mail;
+ 
+-use App\Models\Employee;
+ use Illuminate\Bus\Queueable;
+-use Illuminate\Contracts\Queue\ShouldQueue;
+ use Illuminate\Mail\Mailable;
+ use Illuminate\Mail\Mailables\Content;
+ use Illuminate\Mail\Mailables\Envelope;
+@@ -55,7 +53,7 @@ class EmployeeMail extends Mailable
+ 
+     public function build()
+     {
+-        return $this->subject('Nhân viên mới đã được tạo')
++        return $this->subject(EMAIL_TITLE)
+             ->view('emails.employee_created')
+             ->with('employee', $this->employee);
+     }
+diff --git a/app/Models/Employee.php b/app/Models/Employee.php
+index be16890..4e80835 100644
+--- a/app/Models/Employee.php
++++ b/app/Models/Employee.php
+@@ -2,16 +2,13 @@
+ 
+ namespace App\Models;
+ 
+-use Illuminate\Database\Eloquent\Casts\Attribute;
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Foundation\Auth\User as Authenticatable;
+-use Illuminate\Database\Eloquent\Model;
+ 
+ class Employee extends Authenticatable
+ {
+     use HasFactory;
+     protected $primaryKey = 'id';
+-
+     public $timestamps = false;
+     protected $table = "m_employees";
+     protected $fillable = [
+@@ -37,40 +34,30 @@ class Employee extends Authenticatable
+             $this->attributes['password'] = bcrypt($value);
+         }
+     }
++
+     public function getNameAttribute()
+     {
+         return $this->first_name . ' ' . $this->last_name;
+     }
+-    // public function last_name()
+-    // {
+-    //     return Attribute::make(
+-    //         get: fn($value) => ucfirst($value ?? ''),
+-    //         set: fn($value) => ucfirst($value),
+-    //     );
+-    // }
+-    // protected function fullName()
+-    // {
+-    //     return Attribute::make(
+-    //         get: fn() => $this->first_name . " " . $this->last_name
+-    //     );
+-    // }
++
+     protected static function boot()
+     {
+         parent::boot();
+ 
+         static::creating(function ($model) {
+             $model->ins_id = auth()->user()->id;
+-            $model->del_flag = 0;
++            $model->del_flag = IS_NOT_DELETED;
+         });
+ 
+         static::updating(function ($model) {
+             $model->upd_id = auth()->user()->id;
+         });
+     }
++
+     protected static function booted()
+     {
+         static::addGlobalScope('active', function ($query) {
+-            $query->where('del_flag', 0);
++            $query->where('del_flag', IS_NOT_DELETED);
+         });
+     }
+ 
+@@ -79,39 +66,33 @@ class Employee extends Authenticatable
+         return $query->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$keyword}%"]);
+     }
+ 
+-
+-
+-    public function team()
++    public function team()//relationship
+     {
+         return $this->belongsTo(Team::class);
+     }
++
+     public function getAuthIdentifierName()
+     {
+-        return 'email'; // Hoặc đổi thành 'username' nếu login bằng username
++        return 'email'; // authenticate field
+     }
+ 
++    //Update del_flag to 1, so that upd_datetime and upd_id are automatically updated
+     public function delete()
+     {
+-        $this->del_flag = 1; // Đánh dấu là bị xóa
++        $this->del_flag = IS_DELETED; // Update del_flag to 1
+         return $this->save();
+     }
+ 
+-    // Thêm phương thức restore() để khôi phục bản ghi
++    // Recover deleted record
+     public function restore()
+     {
+-        $this->del_flag = 0; // Bỏ đánh dấu xóa
++        $this->del_flag = IS_NOT_DELETED; // Recover del_flag to 0
+         return $this->save();
+     }
+ 
+-    // Tạo scope để lọc ra các bản ghi chưa bị xóa
+-    // public function scopeActive($query)
+-    // {
+-    //     return $query->where('del_flag', 0);
+-    // }
+-
+-    // Kiểm tra xem bản ghi có bị xóa hay không
++    // Check is deleted
+     public function trashed()
+     {
+-        return $this->del_flag == 1;
++        return $this->del_flag == IS_DELETED;
+     }
+ }
+diff --git a/app/Models/Team.php b/app/Models/Team.php
+index efed9d7..f7277d5 100644
+--- a/app/Models/Team.php
++++ b/app/Models/Team.php
+@@ -14,7 +14,6 @@ class Team extends Model
+         'name',
+         'del_flag'
+     ];
+-    protected $guarded = []; // Loại bỏ bảo vệ trường nào đó
+ 
+     protected static function boot()
+     {
+@@ -22,28 +21,30 @@ class Team extends Model
+ 
+         static::creating(function ($model) {
+             $model->ins_id = auth()->user()->id;
+-            $model->del_flag = 0;
++            $model->del_flag = IS_NOT_DELETED;
+         });
+ 
+         static::updating(function ($model) {
+             $model->upd_id = auth()->user()->id;
+         });
+     }
++
+     //global scope
+     protected static function booted()
+     {
+         static::addGlobalScope('active', function ($query) {
+-            $query->where('del_flag', 0);
++            $query->where('del_flag', IS_NOT_DELETED);
+         });
+     }
+     public function employees()
+     {
+         return $this->hasMany(Employee::class);
+     }
+-
++    
++    //Update del_flag to 1, so that upd_datetime and upd_id are automatically updated
+     public function delete()
+     {
+-        $this->del_flag = 1; // Đánh dấu là bị xóa
++        $this->del_flag = IS_DELETED; // Update del_flag to 1
+         $employees = Employee::where('team_id', $this->id)->get();
+         foreach ($employees as $employee) {
+             $employee->delete();
+@@ -51,23 +52,17 @@ class Team extends Model
+         return $this->save();
+     }
+ 
+-    // Thêm phương thức restore() để khôi phục bản ghi
++    // Recover deleted record
+     public function restore()
+     {
+-        $this->del_flag = 0; // Bỏ đánh dấu xóa
++        $this->del_flag = IS_NOT_DELETED; // Recover del_flag to 0
+         return $this->save();
+     }
+ 
+-    // Tạo scope để lọc ra các bản ghi chưa bị xóa
+-    // public function scopeActive($query)
+-    // {
+-    //     return $query->where('del_flag', 0);
+-    // }
+-
+-    // Kiểm tra xem bản ghi có bị xóa hay không
++    // Check is deleted
+     public function trashed()
+     {
+-        return $this->del_flag == 1;
++        return $this->del_flag == IS_DELETED;
+     }
+ 
+     public static function getFieldById($id, $field)
+diff --git a/app/Models/User.php b/app/Models/User.php
+deleted file mode 100644
+index 0ef9397..0000000
+--- a/app/Models/User.php
++++ /dev/null
+@@ -1,48 +0,0 @@
+-<?php
+-
+-namespace App\Models;
+-
+-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+-use Illuminate\Database\Eloquent\Factories\HasFactory;
+-use Illuminate\Foundation\Auth\User as Authenticatable;
+-use Illuminate\Notifications\Notifiable;
+-
+-class User
+-{
+-    /** @use HasFactory<\Database\Factories\UserFactory> */
+-    use HasFactory, Notifiable;
+-
+-    /**
+-     * The attributes that are mass assignable.
+-     *
+-     * @var list<string>
+-     */
+-    protected $fillable = [
+-        'name',
+-        'email',
+-        'password',
+-    ];
+-
+-    /**
+-     * The attributes that should be hidden for serialization.
+-     *
+-     * @var list<string>
+-     */
+-    protected $hidden = [
+-        'password',
+-        'remember_token',
+-    ];
+-
+-    /**
+-     * Get the attributes that should be cast.
+-     *
+-     * @return array<string, string>
+-     */
+-    protected function casts(): array
+-    {
+-        return [
+-            'email_verified_at' => 'datetime',
+-            'password' => 'hashed',
+-        ];
+-    }
+-}
+diff --git a/app/Services/Repository/BaseRepository.php b/app/Services/Repository/BaseRepository.php
+index 7faf692..09df492 100644
+--- a/app/Services/Repository/BaseRepository.php
++++ b/app/Services/Repository/BaseRepository.php
+@@ -5,9 +5,7 @@ namespace App\Services\Repository;
+ use App\Models\Employee;
+ use App\Models\Team;
+ use App\Services\Interfaces\IRepository;
+-use DB;
+ use Exception;
+-use Illuminate\Database\Eloquent\Model;
+ 
+ abstract class BaseRepository implements IRepository
+ {
+@@ -21,9 +19,9 @@ abstract class BaseRepository implements IRepository
+     {
+         try {
+             return $this->model::find($id);
+-            // return redirect()->route('user.index')->with('success', 'tao thanh cong');
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+     }
+     public function findAll()
+@@ -31,27 +29,27 @@ abstract class BaseRepository implements IRepository
+         try {
+             return $this->model::all();
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+     }
+     public function findAllPaging($amount)
+     {
+         try {
+-            // return $this->model->paginate(10, ['*'], 'page', $page);
+             return $this->model::paginate($amount);
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+     }
+     public function create(array $requestData)
+     {
+         try {
+             unset($requestData['_token']);
+-            // dd($requestData);
+             $this->model::create($requestData);
+-            // return redirect()->route('user.index')->with('success', 'tao thanh cong');
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+     }
+     public function update($id, array $requestData)
+@@ -61,7 +59,8 @@ abstract class BaseRepository implements IRepository
+             unset($requestData['_token']);
+             $item->update($requestData);
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+     }
+     public function delete($id)
+@@ -69,9 +68,9 @@ abstract class BaseRepository implements IRepository
+         try {
+             $item = $this->model::findOrFail($id);
+             $item->delete();
+-            // return redirect()->route('user.index')->with('success', 'delete thanh cong');
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+     }
+     public function searchPaging($amount, array $requestData, $sort = null, $direction = 'asc')
+@@ -81,8 +80,7 @@ abstract class BaseRepository implements IRepository
+                 $requestData,
+                 fn($value) => $value !== null && $value !== ''
+             );
+-            $columns = \Schema::getColumnListing((new $this->model())->getTable()); // Lấy danh sách cột từ model
+-            // dd($columns);
++            $columns = \Schema::getColumnListing((new $this->model())->getTable()); // Take column list
+             $query = $this->model::query();
+             foreach ($filters as $key => $value) {
+                 if ($key === 'name') {
+@@ -112,7 +110,8 @@ abstract class BaseRepository implements IRepository
+             return $query->paginate($amount);
+ 
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+ 
+     }
+diff --git a/app/Services/Repository/EmployeeRepository.php b/app/Services/Repository/EmployeeRepository.php
+index 653db91..eb6ad8e 100644
+--- a/app/Services/Repository/EmployeeRepository.php
++++ b/app/Services/Repository/EmployeeRepository.php
+@@ -18,10 +18,11 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
+         try {
+             return Employee::withoutGlobalScopes()
+                 ->where('email', $email)
+-                ->where('del_flag', 1)
++                ->where('del_flag', IS_DELETED)
+                 ->first();
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+     }
+     public function findActiveEmployeeByEmail($email)
+@@ -29,10 +30,11 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
+         try {
+             return Employee::withoutGlobalScopes()
+                 ->where('email', $email)
+-                ->where('del_flag', 0)
++                ->where('del_flag', IS_NOT_DELETED)
+                 ->first();
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+     }
+     public function findAllEmployeeId()
+@@ -40,7 +42,8 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
+         try {
+             return Employee::all()->pluck('id')->toArray();
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+     }
+     public function findAllSearchedId(array $requestData, $sort = null, $direction = 'asc')
+@@ -51,11 +54,10 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
+                 fn($value) => $value !== null && $value !== ''
+             );
+             $columns = \Schema::getColumnListing((new Employee())->getTable());
+-            // dd($columns);
+             $query = Employee::query();
+             foreach ($filters as $key => $value) {
+                 if ($key === 'name') {
+-                    $query->where($key, 'like', '%' . $value . '%');
++                    $query->searchName($value);
+                 }
+                 if (in_array(strtolower($key), $columns)) {
+                     if ($key === 'email') {
+@@ -77,7 +79,8 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
+             return $query->pluck("id")->toArray();
+ 
+         } catch (Exception $e) {
+-            dd($e->getMessage());
++            \Log::info($e->getMessage());
++            return null;
+         }
+ 
+     }
+diff --git a/app/Services/Repository/TeamRepository.php b/app/Services/Repository/TeamRepository.php
+index 7ebd1ff..9e39580 100644
+--- a/app/Services/Repository/TeamRepository.php
++++ b/app/Services/Repository/TeamRepository.php
+@@ -4,7 +4,6 @@ namespace App\Services\Repository;
+ 
+ use App\Models\Team;
+ use App\Services\Interfaces\ITeamRepository;
+-use Illuminate\Database\Eloquent\Model;
+ 
+ class TeamRepository extends BaseRepository implements ITeamRepository
+ {
+diff --git a/app/Services/Services/EmployeeExportService.php b/app/Services/Services/EmployeeExportService.php
+deleted file mode 100644
+index c867a59..0000000
+--- a/app/Services/Services/EmployeeExportService.php
++++ /dev/null
+@@ -1,15 +0,0 @@
+-<?php
+-
+-namespace App\Services\Services;
+-
+-use App\Services\Interfaces\IEmployeeRepository;
+-use App\Services\Interfaces\ITeamRepository;
+-use App\Services\Repository\EmployeeRepository;
+-use App\Services\Repository\TeamRepository;
+-use Exception;
+-
+-class EmployeeExportService
+-{
+-  
+-    
+-}
+\ No newline at end of file
+diff --git a/app/Services/Services/EmployeeService.php b/app/Services/Services/EmployeeService.php
+index 956c4fa..3481b27 100644
+--- a/app/Services/Services/EmployeeService.php
++++ b/app/Services/Services/EmployeeService.php
+@@ -2,20 +2,25 @@
+ 
+ namespace App\Services\Services;
+ 
++use App\Http\Requests\EmployeeCreateRequest;
++use App\Http\Requests\EmployeeUpdateRequest;
++use App\Jobs\SendEmployeeEmailJob;
+ use App\Models\Employee;
+ use App\Services\Interfaces\IEmployeeRepository;
+-use App\Services\Interfaces\ITeamRepository;
+ use App\Services\Repository\EmployeeRepository;
+-use App\Services\Repository\TeamRepository;
+ use Exception;
+ use Response;
++use Storage;
+ 
+ class EmployeeService
+ {
+     private EmployeeRepository $employeeRepository;
++    private FileService $fileService;
++
+     public function __construct(IEmployeeRepository $employeeRepository)
+     {
+         $this->employeeRepository = $employeeRepository;
++        $this->fileService = FileService::getInstance();
+     }
+     public function findAll()
+     {
+@@ -24,7 +29,7 @@ class EmployeeService
+ 
+     public function findAllPaging()
+     {
+-        return $this->employeeRepository->findAllPaging(2);
++        return $this->employeeRepository->findAllPaging(ITEM_PER_PAGE);
+     }
+     public function findAllEmployeeId()
+     {
+@@ -34,11 +39,11 @@ class EmployeeService
+     public function findById($id)
+     {
+         if (!is_numeric($id)) {
+-            throw new Exception("That type of id is not accepted");
++            throw new Exception(WRONG_FORMAT_ID);
+         }
+         $employee = $this->employeeRepository->findById($id);
+         if (!$employee) {
+-            throw new Exception("Data doesn't exist");
++            throw new Exception(NOT_EXIST_ERROR);
+         }
+         return $employee;
+     }
+@@ -50,34 +55,110 @@ class EmployeeService
+     {
+         return $this->employeeRepository->findActiveEmployeeByEmail($email);
+     }
+-    public function search(array $request, $sort, $direction)
++    public function search(array $request, $sort = null, $direction = "asc")
+     {
+-        return $this->employeeRepository->searchPaging(2, $request, $sort, $direction);
++        $filtered = array_filter(
++            $request,
++            fn($value) => $value !== "" && $value !== null && $value != 0
++        );
++
++        $employees = $this->findAllPaging();
++
++        if (!empty($filtered)) { // Call service when search data is not empty
++            $employees = $this->employeeRepository
++                ->searchPaging(ITEM_PER_PAGE, $filtered, $sort, $direction);
++        }
++
++        return $employees;
+     }
+     public function findAllSearchedId(array $request, $sort, $direction)
+     {
+-        return $this->employeeRepository->findAllSearchedId($request, $sort, $direction);
++        $filtered = array_filter(
++            $request,
++            fn($value) => $value !== "" && $value !== null && $value != 0
++        );
++
++        $employeeIds = $this->findAllEmployeeId();
++
++        if (!empty($request)) { // Call service when search data is not empty
++            $employeeIds = $this->employeeRepository
++                ->findAllSearchedId($filtered, $sort, $direction);
++        }
++
++        return $employeeIds;
+     }
+     public function create(array $request)
+     {
++        $this->fileService->moveTempFileToApp($request['avatar']);
++
++        $emailGetter['email'] = $request['email'];
++        $emailGetter['first_name'] = $request['first_name'];
++        $emailGetter['last_name'] = $request['last_name'];
++        SendEmployeeEmailJob::dispatch($emailGetter)->delay(now()->addSeconds(5));
++
+         return $this->employeeRepository->create($request);
+     }
+     public function update(int $id, array $request)
+     {
+         $employee = $this->employeeRepository->findById($id);
+         if (!$employee) {
+-            throw new Exception("Data doesn't exist");
++            throw new Exception(NOT_EXIST_ERROR);
++        }
++        if ($request['avatar'] !== $request['old_avatar']) {
++            $this->fileService->removeFile('app/' . $request['old_avatar']);
++            $this->fileService->moveTempFileToApp($request['avatar']);
+         }
++        $emailGetter['email'] = $request['email'];
++        $emailGetter['first_name'] = $request['first_name'];
++        $emailGetter['last_name'] = $request['last_name'];
++        SendEmployeeEmailJob::dispatch($emailGetter)->delay(now()->addSeconds(5));
++
+         return $this->employeeRepository->update($id, $request);
+     }
+     public function delete(int $id)
+     {
+         $employee = $this->employeeRepository->findById($id);
+         if (!$employee) {
+-            throw new Exception("Data doesn't exist");
++            throw new Exception(NOT_EXIST_ERROR);
+         }
+         return $this->employeeRepository->delete($id);
+     }
++    public function prepareConfirmForUpdate($id, EmployeeUpdateRequest $request)
++    {
++        $validatedData = $request->validated();
++        if ($request->hasFile('avatar')) {
++            session()->forget('temp_file');
++            $filePath = $this->fileService->uploadTempFileAndDeleteTempFile(
++                $request->file('avatar'),
++                $request->uploaded_avatar
++            );
++            $validatedData['avatar'] = $filePath;
++        } else {
++            $validatedData['avatar'] = $request->uploaded_avatar;
++        }
++        $validatedData['old_avatar'] = $request->old_avatar;
++        $validatedData['id'] = $id;
++
++        session()->flash('employee_data', $validatedData);
++    }
++
++    public function prepareConfirmForCreate(EmployeeCreateRequest $request)
++    {
++        $validatedData = $request->validated();
++        if ($request->hasFile('avatar')) {
++            session()->forget('temp_file');
++            $filePath = $this->fileService
++                ->uploadTempFileAndDeleteTempFile(
++                    $request->file('avatar'),
++                    $request->old_avatar
++                );
++            $validatedData['avatar'] = $filePath;
++        } else {
++            $validatedData['avatar'] = $request->old_avatar;
++        }
++
++        session()->flash('employee_data', $validatedData);
++    }
+ 
+     public function exportToCSV(array $ids)
+     {
+@@ -92,12 +173,18 @@ class EmployeeService
+         ];
+ 
+         $fileName = 'employees_' . time() . '.csv';
+-        $filePath = storage_path("app/public/temp/" . $fileName);
++        $filePath = 'temp/' . $fileName; // Store in `storage/app/public/temp/`
++
++        // Create a white file in public disk
++        Storage::disk('public')->put($filePath, '');
++
++        // Take absolute path of white file
++        $absolutePath = Storage::disk('public')->path($filePath);
+ 
+-        $handle = fopen($filePath, "w");
++        $handle = fopen($absolutePath, "w");
+         fputcsv($handle, ['ID', 'Team', 'Name', 'Email']);
+ 
+-        $emps = Employee::whereIn('id', $ids)->get(); // Lọc theo ID
++        $emps = Employee::whereIn('id', $ids)->get(); // Filter by ID
+ 
+         foreach ($emps as $emp) {
+             fputcsv($handle, [
+@@ -111,7 +198,9 @@ class EmployeeService
+         fclose($handle);
+         ob_end_clean();
+ 
+-        return Response::download($filePath, $fileName, $headers)->deleteFileAfterSend(true)->send();
++        return Response::download($absolutePath, $fileName, $headers)
++            ->deleteFileAfterSend(true)
++            ->send();
+     }
+ 
+ 
+diff --git a/app/Services/Services/FileService.php b/app/Services/Services/FileService.php
+index b8dcd92..411130d 100644
+--- a/app/Services/Services/FileService.php
++++ b/app/Services/Services/FileService.php
+@@ -17,23 +17,15 @@ class FileService
+         }
+         return self::$instance;
+     }
+-    public function uploadTempFile($newFile, $oldFileName)
++    public function uploadTempFileAndDeleteTempFile($newFile, $oldFileName)
+     {
+         if ($oldFileName !== null) {
+-            // dd(Storage::exists($oldFileName));
+             Storage::disk('public')->delete('temp/' . $oldFileName);
+-            // unlink('D:/xampp/htdocs/example-app/public/storage/' . $oldFileName);
+         }
+-        $filePath = $newFile->store('temp', 'public'); // Lưu vào storage/public/temp
++        $filePath = $newFile->store('temp', 'public'); // store in storage/public/temp
+         $fileName = str_replace('temp/', '', $filePath);
+         return $fileName;
+     }
+-    public function uploadFile($newFile)
+-    {
+-        $filePath = $newFile->store('app', 'public'); // Lưu vào storage/public/temp
+-        $fileName = str_replace('app/', '', $filePath);
+-        return $fileName;
+-    }
+ 
+     public function removeFile($fileName)
+     {
+@@ -41,16 +33,14 @@ class FileService
+             Storage::disk('public')->delete($fileName);
+         }
+     }
++    
+     public function moveTempFileToApp($fileName)
+     {
+-        $tempPath = 'temp/' . $fileName;  // Đường dẫn file trong storage/app/temp/
+-        $newPath = str_replace('temp', 'app', $tempPath);  // Đường dẫn file trong storage/app/temp/
++        $tempPath = 'temp/' . $fileName;  // Take path form temp folder
++        $newPath = str_replace('temp', 'app', $tempPath);  // Make a new path to app folder
+ 
+         if (Storage::disk('public')->exists($tempPath)) {
+-            Storage::disk('public')->move($tempPath, $newPath);
+-            return "File moved successfully to " . $newPath;
+-        } else {
+-            return "File not found!";
++            Storage::disk('public')->move($tempPath, $newPath); // move file
+         }
+     }
+ }
+\ No newline at end of file
+diff --git a/app/Services/Services/TeamService.php b/app/Services/Services/TeamService.php
+index 6ec3161..08708df 100644
+--- a/app/Services/Services/TeamService.php
++++ b/app/Services/Services/TeamService.php
+@@ -3,7 +3,6 @@
+ namespace App\Services\Services;
+ 
+ use App\Http\Requests\TeamCreateRequest;
+-use App\Http\Requests\TeamSearchRequest;
+ use App\Http\Requests\TeamUpdateRequest;
+ use App\Services\Interfaces\ITeamRepository;
+ use App\Services\Repository\TeamRepository;
+@@ -23,22 +22,34 @@ class TeamService
+     }
+     public function findAllPaging()
+     {
+-        return $this->teamRepository->findAllPaging(2);
++        return $this->teamRepository->findAllPaging(ITEM_PER_PAGE);
+     }
+     public function findById($id)
+     {
+         if (!is_numeric($id)) {
+-            throw new Exception("That type of id is not accepted");
++            throw new Exception(WRONG_FORMAT_ID);
+         }
+         $team = $this->teamRepository->findById($id);
+         if (!$team) {
+-            throw new Exception("Data doesn't exist");
++            throw new Exception(NOT_EXIST_ERROR);
+         }
+         return $team;
+     }
+     public function search(array $request, $sort, $direction)
+     {
+-        return $this->teamRepository->searchPaging(2, $request, $sort, $direction);
++        $filtered = array_filter(
++            $request,
++            fn($value) => $value !== "" && $value !== null && $value != 0
++        );
++
++        $teams = $this->findAllPaging();
++
++        if (!empty($filtered)) { // Call service when search data is not empty
++            $teams = $this->teamRepository
++                ->searchPaging(ITEM_PER_PAGE, $filtered, $sort, $direction);
++        }
++
++        return $teams;
+     }
+     public function create(array $request)
+     {
+@@ -48,7 +59,7 @@ class TeamService
+     {
+         $team = $this->teamRepository->findById($id);
+         if (!$team) {
+-            throw new Exception("Data doesn't exist");
++            throw new Exception(NOT_EXIST_ERROR);
+         }
+         return $this->teamRepository->update($id, $request);
+     }
+@@ -56,8 +67,20 @@ class TeamService
+     {
+         $team = $this->teamRepository->findById($id);
+         if (!$team) {
+-            throw new Exception("Data doesn't exist");
++            throw new Exception(NOT_EXIST_ERROR);
+         }
+         return $this->teamRepository->delete($id);
+     }
++
++    public function prepareConfirmForUpdate(TeamUpdateRequest $request){
++        $validatedData = $request->validated();
++
++        session()->flash('team_data', $validatedData);
++    }
++
++    public function prepareConfirmForCreate(TeamCreateRequest $request){
++        $validatedData = $request->validated();
++
++        session()->flash('team_data', $validatedData);
++    }
+ }
+\ No newline at end of file
+diff --git a/bootstrap/app.php b/bootstrap/app.php
+index 7b162da..6036d3b 100644
+--- a/bootstrap/app.php
++++ b/bootstrap/app.php
+@@ -3,11 +3,12 @@
+ use Illuminate\Foundation\Application;
+ use Illuminate\Foundation\Configuration\Exceptions;
+ use Illuminate\Foundation\Configuration\Middleware;
++require_once __DIR__ . '/constants.php';
+ 
+ return Application::configure(basePath: dirname(__DIR__))
+     ->withRouting(
+-        web: __DIR__.'/../routes/web.php',
+-        commands: __DIR__.'/../routes/console.php',
++        web: __DIR__ . '/../routes/web.php',
++        commands: __DIR__ . '/../routes/console.php',
+         health: '/up',
+     )
+     ->withMiddleware(function (Middleware $middleware) {
+@@ -16,3 +17,5 @@ return Application::configure(basePath: dirname(__DIR__))
+     ->withExceptions(function (Exceptions $exceptions) {
+         //
+     })->create();
++
++
+diff --git a/bootstrap/constants.php b/bootstrap/constants.php
+new file mode 100644
+index 0000000..67335a7
+--- /dev/null
++++ b/bootstrap/constants.php
+@@ -0,0 +1,34 @@
++<?php
++
++define("IS_DELETED", 1);
++define("IS_NOT_DELETED", 0);
++
++define("ITEM_PER_PAGE", 2);
++
++define("LOGIN_FAILED", "Login failed");
++define("EMAIL_NOT_FOUND", "Email not found");
++define("LOGIN_SUCCESS", "Login success");
++define("NOT_LOGIN_ERROR", "You are not login!");
++
++define("ERROR_ACCESS_DENIED", "Can't go to this page directly");
++
++define("SESSION_SUCCESS", "success");
++define("SESSION_ERROR", "error");
++define("SESSION_EMAIL_ERROR", "emailError");
++
++define("UPDATE_SUCCESS", "Update successfully");
++define("CREATE_SUCCESS", "Create successfully");
++define("DELETE_SUCCESS", "Delete successfully");
++
++define("WRONG_FORMAT_ID", "That type of id is not accepted");
++define("NOT_EXIST_ERROR", "Data doesn't exist");
++
++
++define("TEMP_FOLDER", "app/public/temp/");
++define("TEMP_URL", "storage/temp/");
++define("APP_URL", "storage/app/");
++
++define("NO_RESULT", "No result found");
++define("NO_AVATAR", "No avatar found");
++
++define("EMAIL_TITLE", 'Email for employee');
+\ No newline at end of file
+diff --git a/database/factories/EmployeeFactory.php b/database/factories/EmployeeFactory.php
+index 0cd8eb5..08e9163 100644
+--- a/database/factories/EmployeeFactory.php
++++ b/database/factories/EmployeeFactory.php
+@@ -38,7 +38,7 @@ class EmployeeFactory extends Factory
+             'type_of_work' => $this->faker->randomElement(['1', '2', '3', '4']),
+             'ins_id' => 1,
+             'upd_id' => null,
+-            'del_flag' => '0',
++            'del_flag' => IS_NOT_DELETED,
+         ];
+     }
+ 
+diff --git a/database/factories/TeamFactory.php b/database/factories/TeamFactory.php
+index 94425e0..53e3933 100644
+--- a/database/factories/TeamFactory.php
++++ b/database/factories/TeamFactory.php
+@@ -16,7 +16,7 @@ class TeamFactory extends Factory
+             'name' => $this->faker->company,
+             'ins_id' => 1,
+             'upd_id' => null,
+-            'del_flag' => '0',
++            'del_flag' => IS_NOT_DELETED,
+         ];
+     }
+ }
+diff --git a/resources/views/auth/login.blade.php b/resources/views/auth/login.blade.php
+index ed48106..6ddaa97 100644
+--- a/resources/views/auth/login.blade.php
++++ b/resources/views/auth/login.blade.php
+@@ -1,20 +1,10 @@
+-<?php
+-// session_start();
+-// if (isset($_SESSION["admin_id"]) && $_SESSION["admin_id"] != "0") {
+-//     header("Location: ?controller=admin");
+-//     exit;
+-// }
+-
+-// $errors = $_SESSION['errors'] ?? [];
+-// unset($_SESSION['errors']);
+-?>
+ <!DOCTYPE html>
+ <html lang="vi">
+ 
+ <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Đăng nhập</title>
++    <title>Login</title>
+     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+ </head>
+ 
+@@ -24,10 +14,9 @@
+             <div class="col-md-4">
+                 <h3 class="text-center">Login</h3>
+ 
+-                <!-- Hiển thị lỗi -->
+-                @if (session('error'))
++                @if (session(SESSION_ERROR))
+                     <div class="alert alert-danger">
+-                        {{ session('error') }}
++                        {{ session(SESSION_ERROR) }}
+                     </div>
+                 @endif
+ 
+@@ -37,20 +26,14 @@
+                         <label for="email" class="form-label">Email</label>
+                         <input type="text" class="form-control" id="email" name="email"
+                             value="{{ old('email', session('login_email')) }}">
+-                        <!-- Hiển thị lỗi -->
+                         @if ($errors->has('email'))
+                             <div class="alert alert-danger">
+                                 {{ $errors->first('email') }}
+                             </div>
+                         @endif
+-                        @if (session('emailError'))
+-                            <div class="alert alert-danger">
+-                                {{ session('emailError') }}
+-                            </div>
+-                        @endif
+-                        @if (session('wrongPassword'))
++                        @if (session(SESSION_EMAIL_ERROR))
+                             <div class="alert alert-danger">
+-                                {{ session('wrongPassword') }}
++                                {{ session(SESSION_EMAIL_ERROR) }}
+                             </div>
+                         @endif
+                     </div>
+@@ -58,7 +41,6 @@
+                     <div class="mb-3">
+                         <label for="password" class="form-label">Password</label>
+                         <input type="password" class="form-control" id="password" name="password">
+-                        <!-- Hiển thị lỗi -->
+                         @if ($errors->has('password'))
+                             <div class="alert alert-danger">
+                                 {{ $errors->first('password') }}
+@@ -66,7 +48,7 @@
+                         @endif
+                     </div>
+ 
+-                    <button type="submit" class="btn btn-primary w-100">Đăng nhập</button>
++                    <button type="submit" class="btn btn-primary w-100">Login</button>
+                 </form>
+             </div>
+         </div>
+diff --git a/resources/views/dashboard/component/confirm-modal.blade.php b/resources/views/dashboard/component/confirm-modal.blade.php
+index d381323..c0c88d2 100644
+--- a/resources/views/dashboard/component/confirm-modal.blade.php
++++ b/resources/views/dashboard/component/confirm-modal.blade.php
+@@ -1,6 +1,3 @@
+-<!-- Button Save -->
+-
+-
+ <!-- Modal -->
+ <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel">
+     <div class="modal-dialog">
+diff --git a/resources/views/dashboard/component/footer.blade.php b/resources/views/dashboard/component/footer.blade.php
+deleted file mode 100644
+index 1b27102..0000000
+--- a/resources/views/dashboard/component/footer.blade.php
++++ /dev/null
+@@ -1,8 +0,0 @@
+-<div class="footer">
+-    <div class="pull-right">
+-        10GB of <strong>250GB</strong> Free.
+-    </div>
+-    <div>
+-        <strong>Copyright</strong> Example Company &copy; 2014-2017
+-    </div>
+-</div>
+\ No newline at end of file
+diff --git a/resources/views/dashboard/component/head.blade.php b/resources/views/dashboard/component/head.blade.php
+index 0862ba7..e341dc2 100644
+--- a/resources/views/dashboard/component/head.blade.php
++++ b/resources/views/dashboard/component/head.blade.php
+@@ -7,7 +7,7 @@
+     .dropdown:hover .dropdown-menu {
+         display: block;
+         margin-top: 0;
+-        /* Giúp dropdown hiển thị đúng vị trí */
++        /* For correct dropdown position */
+     }
+ 
+     a {
+diff --git a/resources/views/dashboard/component/script.blade.php b/resources/views/dashboard/component/script.blade.php
+deleted file mode 100644
+index ef73bfa..0000000
+--- a/resources/views/dashboard/component/script.blade.php
++++ /dev/null
+@@ -1,176 +0,0 @@
+-<script src="admin/js/jquery-3.1.1.min.js"></script>
+-<script src="admin/js/bootstrap.min.js"></script>
+-<script src="admin/js/plugins/metisMenu/jquery.metisMenu.js"></script>
+-<script src="admin/js/plugins/slimscroll/jquery.slimscroll.min.js"></script>
+-
+-@if (isset($config['js']) && is_array($config['js']))
+-    @foreach ($config['js'] as $key => $val)
+-        {!! '<script src="' . $val . '"></script>'!!}
+-    @endforeach
+-@endif
+-
+-
+-
+-<script>
+-    $(document).ready(function () {
+-        $('.chart').easyPieChart({
+-            barColor: '#f8ac59',
+-            //                scaleColor: false,
+-            scaleLength: 5,
+-            lineWidth: 4,
+-            size: 80
+-        });
+-
+-        $('.chart2').easyPieChart({
+-            barColor: '#1c84c6',
+-            //                scaleColor: false,
+-            scaleLength: 5,
+-            lineWidth: 4,
+-            size: 80
+-        });
+-
+-        var data2 = [
+-            [gd(2012, 1, 1), 7], [gd(2012, 1, 2), 6], [gd(2012, 1, 3), 4], [gd(2012, 1, 4), 8],
+-            [gd(2012, 1, 5), 9], [gd(2012, 1, 6), 7], [gd(2012, 1, 7), 5], [gd(2012, 1, 8), 4],
+-            [gd(2012, 1, 9), 7], [gd(2012, 1, 10), 8], [gd(2012, 1, 11), 9], [gd(2012, 1, 12), 6],
+-            [gd(2012, 1, 13), 4], [gd(2012, 1, 14), 5], [gd(2012, 1, 15), 11], [gd(2012, 1, 16), 8],
+-            [gd(2012, 1, 17), 8], [gd(2012, 1, 18), 11], [gd(2012, 1, 19), 11], [gd(2012, 1, 20), 6],
+-            [gd(2012, 1, 21), 6], [gd(2012, 1, 22), 8], [gd(2012, 1, 23), 11], [gd(2012, 1, 24), 13],
+-            [gd(2012, 1, 25), 7], [gd(2012, 1, 26), 9], [gd(2012, 1, 27), 9], [gd(2012, 1, 28), 8],
+-            [gd(2012, 1, 29), 5], [gd(2012, 1, 30), 8], [gd(2012, 1, 31), 25]
+-        ];
+-
+-        var data3 = [
+-            [gd(2012, 1, 1), 800], [gd(2012, 1, 2), 500], [gd(2012, 1, 3), 600], [gd(2012, 1, 4), 700],
+-            [gd(2012, 1, 5), 500], [gd(2012, 1, 6), 456], [gd(2012, 1, 7), 800], [gd(2012, 1, 8), 589],
+-            [gd(2012, 1, 9), 467], [gd(2012, 1, 10), 876], [gd(2012, 1, 11), 689], [gd(2012, 1, 12), 700],
+-            [gd(2012, 1, 13), 500], [gd(2012, 1, 14), 600], [gd(2012, 1, 15), 700], [gd(2012, 1, 16), 786],
+-            [gd(2012, 1, 17), 345], [gd(2012, 1, 18), 888], [gd(2012, 1, 19), 888], [gd(2012, 1, 20), 888],
+-            [gd(2012, 1, 21), 987], [gd(2012, 1, 22), 444], [gd(2012, 1, 23), 999], [gd(2012, 1, 24), 567],
+-            [gd(2012, 1, 25), 786], [gd(2012, 1, 26), 666], [gd(2012, 1, 27), 888], [gd(2012, 1, 28), 900],
+-            [gd(2012, 1, 29), 178], [gd(2012, 1, 30), 555], [gd(2012, 1, 31), 993]
+-        ];
+-
+-
+-        var dataset = [
+-            {
+-                label: "Number of orders",
+-                data: data3,
+-                color: "#1ab394",
+-                bars: {
+-                    show: true,
+-                    align: "center",
+-                    barWidth: 24 * 60 * 60 * 600,
+-                    lineWidth: 0
+-                }
+-
+-            }, {
+-                label: "Payments",
+-                data: data2,
+-                yaxis: 2,
+-                color: "#1C84C6",
+-                lines: {
+-                    lineWidth: 1,
+-                    show: true,
+-                    fill: true,
+-                    fillColor: {
+-                        colors: [{
+-                            opacity: 0.2
+-                        }, {
+-                            opacity: 0.4
+-                        }]
+-                    }
+-                },
+-                splines: {
+-                    show: false,
+-                    tension: 0.6,
+-                    lineWidth: 1,
+-                    fill: 0.1
+-                },
+-            }
+-        ];
+-
+-
+-        var options = {
+-            xaxis: {
+-                mode: "time",
+-                tickSize: [3, "day"],
+-                tickLength: 0,
+-                axisLabel: "Date",
+-                axisLabelUseCanvas: true,
+-                axisLabelFontSizePixels: 12,
+-                axisLabelFontFamily: 'Arial',
+-                axisLabelPadding: 10,
+-                color: "#d5d5d5"
+-            },
+-            yaxes: [{
+-                position: "left",
+-                max: 1070,
+-                color: "#d5d5d5",
+-                axisLabelUseCanvas: true,
+-                axisLabelFontSizePixels: 12,
+-                axisLabelFontFamily: 'Arial',
+-                axisLabelPadding: 3
+-            }, {
+-                position: "right",
+-                clolor: "#d5d5d5",
+-                axisLabelUseCanvas: true,
+-                axisLabelFontSizePixels: 12,
+-                axisLabelFontFamily: ' Arial',
+-                axisLabelPadding: 67
+-            }
+-            ],
+-            legend: {
+-                noColumns: 1,
+-                labelBoxBorderColor: "#000000",
+-                position: "nw"
+-            },
+-            grid: {
+-                hoverable: false,
+-                borderWidth: 0
+-            }
+-        };
+-
+-        function gd(year, month, day) {
+-            return new Date(year, month - 1, day).getTime();
+-        }
+-
+-        var previousPoint = null, previousLabel = null;
+-
+-        $.plot($("#flot-dashboard-chart"), dataset, options);
+-
+-        var mapData = {
+-            "US": 298,
+-            "SA": 200,
+-            "DE": 220,
+-            "FR": 540,
+-            "CN": 120,
+-            "AU": 760,
+-            "BR": 550,
+-            "IN": 200,
+-            "GB": 120,
+-        };
+-
+-        $('#world-map').vectorMap({
+-            map: 'world_mill_en',
+-            backgroundColor: "transparent",
+-            regionStyle: {
+-                initial: {
+-                    fill: '#e4e4e4',
+-                    "fill-opacity": 0.9,
+-                    stroke: 'none',
+-                    "stroke-width": 0,
+-                    "stroke-opacity": 0
+-                }
+-            },
+-
+-            series: {
+-                regions: [{
+-                    values: mapData,
+-                    scale: ["#1ab394", "#22d6b1"],
+-                    normalizeFunction: 'polynomial'
+-                }]
+-            },
+-        });
+-    });
+-</script>
+\ No newline at end of file
+diff --git a/resources/views/dashboard/component/sidebar.blade.php b/resources/views/dashboard/component/sidebar.blade.php
+deleted file mode 100644
+index 8309265..0000000
+--- a/resources/views/dashboard/component/sidebar.blade.php
++++ /dev/null
+@@ -1,40 +0,0 @@
+-<nav class="navbar-default navbar-static-side" role="navigation">
+-    <div class="sidebar-collapse">
+-        <ul class="nav metismenu" id="side-menu">
+-            <li class="nav-header">
+-                <div class="dropdown profile-element"> <span>
+-                        <img alt="image" class="img-circle" src="img/profile_small.jpg" />
+-                    </span>
+-                    <a data-toggle="dropdown" class="dropdown-toggle" href="#">
+-                        <span class="clear"> <span class="block m-t-xs"> <strong
+-                                    class="font-bold">{{ $config['user']->name }}</strong>
+-                            </span> <span class="text-muted text-xs block">Art Director <b class="caret"></b></span>
+-                        </span> </a>
+-                    <ul class="dropdown-menu animated fadeInRight m-t-xs">
+-                        <li><a href="profile.html">Profile</a></li>
+-                        <li><a href="contacts.html">Contacts</a></li>
+-                        <li><a href="mailbox.html">Mailbox</a></li>
+-                        <li class="divider"></li>
+-                        <li><a href="{{ route('auth.logout') }}">Logout</a></li>
+-                    </ul>
+-                </div>
+-                <div class="logo-element">
+-                    IN+
+-                </div>
+-            </li>
+-            <li class="active">
+-                <a href="{{ route('dashboard.index') }}"><i class="fa fa-th-large"></i> <span
+-                        class="nav-label">Dashboards</span>
+-                    <span class="fa arrow"></span></a>
+-                <ul class="nav nav-second-level">
+-                    <li><a href="{{ route('user.index') }}">User</a></li>
+-                    <li class="active"><a href="dashboard_2.html">Dashboard v.2</a></li>
+-                    <li><a href="dashboard_3.html">Dashboard v.3</a></li>
+-                    <li><a href="dashboard_4_1.html">Dashboard v.4</a></li>
+-                    <li><a href="dashboard_5.html">Dashboard v.5 </a></li>
+-                </ul>
+-            </li>
+-        </ul>
+-
+-    </div>
+-</nav>
+\ No newline at end of file
+diff --git a/resources/views/dashboard/employee/create.blade.php b/resources/views/dashboard/employee/create.blade.php
+index 640bc97..351bd5c 100644
+--- a/resources/views/dashboard/employee/create.blade.php
++++ b/resources/views/dashboard/employee/create.blade.php
+@@ -3,11 +3,10 @@ use App\Const\Gender;
+ use App\Const\Position;
+ use App\Const\Status;
+ use App\Const\TypeOfWork;
+-use App\Models\Team;
+ ?>
+-@if(session('error'))
++@if(session(SESSION_ERROR))
+     <div class="alert alert-danger">
+-        {{ session('error') }}
++        {{ session(SESSION_ERROR) }}
+     </div>
+ @endif
+ <div class="container mt-4">
+@@ -38,47 +37,16 @@ use App\Models\Team;
+                 <p style="color: red;">{{ $message }}</p>
+             @enderror
+ 
+-            @if(session('temp_file'))
+-                <p>File đã tải lên: </p>
+-                <!-- <a href="{{ asset('storage/' . session('temp_file')) }}" target="_blank">Xem file</a> -->
+-                <img src="{{ asset('storage/temp/' . session('temp_file')) }}"
+-                    style="max-width: 200px; margin-top: 10px;">
+-                <input type="hidden" name="old_avatar" value="{{ session('temp_file','') }}">
+-            @else
+-                @if (session('employee_data.avatar'))
+-                <p>File đã tải lên: </p>
+-                <img src="{{ asset('storage/temp/' .  session('employee_data.avatar')) }}"
+-                    style="max-width: 200px; margin-top: 10px;">
+-                @endif
+-                <input type="hidden" name="old_avatar" value="{{ session('employee_data.avatar','') }}">
+-            @endif
+-            <!-- <img id="previewImage" src="#" alt="Preview" style="display: none; max-width: 200px; margin-top: 10px;">
+-
+             @php
+-                $avatarPath = old('avatar', session('employee_data.avatar'));
++                $avatar = session('temp_file') ?? session('employee_data.avatar');
+             @endphp
+ 
+-            @if ($avatarPath)
+-                <img id="previewImage" src="{{ asset('storage/temp/' . $avatarPath) }}" alt="Preview"
+-                    style="max-width: 200px; margin-top: 10px;">
++            @if ($avatar)
++                <p>File đã tải lên:</p>
++                <img src="{{ asset(TEMP_URL . $avatar) }}" style="max-width: 200px; margin-top: 10px;">
+             @endif
+-        </div>
+-        <input type="hidden" name="old_avatar" value="{{ session('employee_data.avatar', '')}}"> -->
+-
+-            <!-- <script>
+-            document.getElementById('avatar').addEventListener('change', function (event) {
+-                const file = event.target.files[0];
+-                if (file) {
+-                    const reader = new FileReader();
+-                    reader.onload = function (e) {
+-                        const preview = document.getElementById('previewImage');
+-                        preview.src = e.target.result;
+-                        preview.style.display = 'block';
+-                    };
+-                    reader.readAsDataURL(file);
+-                }
+-            });
+-        </script> -->
++
++            <input type="hidden" name="old_avatar" value="{{ $avatar ?? '' }}">
+ 
+             <div class="mb-3">
+                 <label for="email" class="form-label">Email:</label>
+@@ -125,16 +93,15 @@ use App\Models\Team;
+                 @enderror
+             </div>
+ 
+-
+             <div class="mb-3">
+                 <label for="birthday" class="form-label">Birthday:</label>
+ 
+                 @php
+                     $birthday = old('birthday', session('employee_data.birthday'));
+                     if ($birthday instanceof \Carbon\Carbon) {
+-                        $birthday = $birthday->format('Y-m-d'); // Chuyển về định dạng phù hợp nếu là Carbon
++                        $birthday = $birthday->format('Y-m-d');
+                     } elseif (!empty($birthday)) {
+-                        $birthday = date('Y-m-d', strtotime($birthday)); // Nếu là chuỗi, đảm bảo đúng định dạng
++                        $birthday = date('Y-m-d', strtotime($birthday));
+                     }
+                 @endphp
+ 
+@@ -163,7 +130,7 @@ use App\Models\Team;
+ 
+                 @php
+                     $positionOptions = Position::LIST;
+-                    $selectedPosition = old('position', session('employee_data.position')); // Tránh lỗi khi session không có giá trị
++                    $selectedPosition = old('position', session('employee_data.position'));
+                 @endphp
+                 <select class="form-control" id="position" name="position">
+                     <option value="">{{ '' }}
+@@ -186,7 +153,7 @@ use App\Models\Team;
+ 
+                 @php
+                     $statusOptions = Status::LIST;
+-                    $selectedStatus = old('status', session('employee_data.status')); // Tránh lỗi khi session không có giá trị
++                    $selectedStatus = old('status', session('employee_data.status'));
+                 @endphp
+ 
+                 @foreach ($statusOptions as $value => $label)
+diff --git a/resources/views/dashboard/employee/create_confirm.blade.php b/resources/views/dashboard/employee/create_confirm.blade.php
+index 3bfb615..98d584e 100644
+--- a/resources/views/dashboard/employee/create_confirm.blade.php
++++ b/resources/views/dashboard/employee/create_confirm.blade.php
+@@ -19,11 +19,11 @@ use App\Models\Team;
+                 @endphp
+ 
+                 @if ($avatarPath)
+-                    <img id="previewImage" src="{{ url('storage/temp/' . $avatarPath) }}" alt="Preview"
++                    <img id="previewImage" src="{{ url(TEMP_URL . $avatarPath) }}"
+                         style="max-width: 200px; margin-top: 10px;">
+                     <input type="hidden" name="avatar" value="{{ session('employee_data.avatar') }}">
+                 @else
+-                    <p style="color: red;">No image found</p>
++                    <p style="color: red;">{{ NO_AVATAR }}</p>
+                 @endif
+                 @error('avatar')
+                     <p style="color: red;">{{ $message }}</p>
+diff --git a/resources/views/dashboard/employee/index.blade.php b/resources/views/dashboard/employee/index.blade.php
+index d5b6544..d9c6d9f 100644
+--- a/resources/views/dashboard/employee/index.blade.php
++++ b/resources/views/dashboard/employee/index.blade.php
+@@ -1,16 +1,16 @@
+ <div class="container mt-5">
+     <h2 class="mb-4">Employee - Search</h2>
+-    @if (session('error'))
++    @if (session(SESSION_ERROR))
+         <div class="alert alert-danger">
+-            {{ session('error') }}
++            {{ session(SESSION_ERROR) }}
+         </div>
+     @endif
+-    @if (session('success'))
++    @if (session(SESSION_SUCCESS))
+         <div class="alert alert-primary">
+-            {{ session('success') }}
++            {{ session(SESSION_SUCCESS) }}
+         </div>
+     @endif
+-    <!-- Form tìm kiếm -->
++    <!-- Search Form -->
+     <form action="{{ route('employee.index') }}" method="GET" class="mb-3">
+         <div class="col-md-4">
+             <label for="name" class="form-label">Name:</label>
+@@ -37,7 +37,7 @@
+             <a href="{{ route('employee.index') }}" class="btn btn-secondary">Reset</a>
+         </div>
+     </form>
+-    <!-- Hiển thị kết quả tìm kiếm -->
++    <!-- Search result -->
+     <h3>Search result:</h3>
+     @if($employees->isNotEmpty())
+ 
+@@ -53,14 +53,14 @@
+         <table class="table table-bordered">
+             <thead class="table-dark">
+                 <tr>
+-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'id', 'direction' => $newDirection]) }}"
++                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'id', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
+                             class="text-white">ID ↕</a></th>
+                     <th>Avatar</th>
+-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'team_id', 'direction' => $newDirection]) }}"
++                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'team_id', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
+                             class="text-white">Team ↕</a></th>
+-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'name', 'direction' => $newDirection]) }}"
++                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'name', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
+                             class="text-white">Name ↕</a></th>
+-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'email', 'direction' => $newDirection]) }}"
++                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'email', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
+                             class="text-white">Email ↕</a></th>
+                     <th>Action</th>
+                 </tr>
+@@ -69,8 +69,8 @@
+                 <tr>
+                     <td>{{ $employee->id }}</td>
+                     <td>
+-                        <img src="{{ url('storage/app/' . $employee->avatar) }}" width="50" height="50" class="rounded-circle"
+-                            title="{{ $employee->avatar ?? "Dont't have avatar" }}">
++                        <img src="{{ url(APP_URL . $employee->avatar) }}" width="50" height="50" class="rounded-circle"
++                            title="{{ $employee->avatar ?? NO_AVATAR }}">
+                     </td>
+                     <td>
+                         {{ $employee->team->name }}
+@@ -100,7 +100,7 @@
+         @if ($employees->hasPages())
+ 
+             <ul class="pagination">
+-                {{-- Nút First --}}
++                {{-- First --}}
+                 @if ($employees->currentPage() > 1)
+                     <li class="page-item">
+                         <a class="page-link" href="{{ $employees->url(1) }}">First</a>
+@@ -111,7 +111,7 @@
+                     </li>
+                 @endif
+ 
+-                {{-- Nút Prev --}}
++                {{-- Prev --}}
+                 @if($employees->onFirstPage())
+                     <li class="page-item disabled">
+                         <a class="page-link">Prev</a>
+@@ -122,7 +122,7 @@
+                     </li>
+                 @endif
+ 
+-                {{-- Các trang số --}}
++                {{-- Index page --}}
+                 @for ($i = 1; $i <= $employees->lastPage(); $i++)
+                     @if ($i == $employees->currentPage())
+                         <li class="page-item active">
+@@ -135,7 +135,7 @@
+                     @endif
+                 @endfor
+ 
+-                {{-- Nút Next --}}
++                {{-- Next --}}
+                 @if ($employees->hasMorePages())
+                     <li class="page-item">
+                         <a class="page-link" href="{{ $employees->nextPageUrl() }}">Next</a>
+@@ -146,7 +146,7 @@
+                     </li>
+                 @endif
+ 
+-                {{-- Nút Last --}}
++                {{-- Last --}}
+                 @if ($employees->currentPage() < $employees->lastPage())
+                     <li class="page-item">
+                         <a class="page-link" href="{{ $employees->url($employees->lastPage()) }}">Last</a>
+@@ -172,7 +172,7 @@
+             </thead>
+ 
+             <tr>
+-                <td colspan="3">No result found</td>
++                <td colspan="3">{{ NO_RESULT }}</td>
+             </tr>
+         </table>
+     @endif
+diff --git a/resources/views/dashboard/employee/update.blade.php b/resources/views/dashboard/employee/update.blade.php
+index 73dc6b6..e3e469d 100644
+--- a/resources/views/dashboard/employee/update.blade.php
++++ b/resources/views/dashboard/employee/update.blade.php
+@@ -3,7 +3,6 @@ use App\Const\Gender;
+ use App\Const\Position;
+ use App\Const\Status;
+ use App\Const\TypeOfWork;
+-use App\Models\Team;
+ ?>
+ <div class="container mt-4">
+     <h2 class="mb-3">Employee - Update</h2>
+@@ -28,12 +27,11 @@ use App\Models\Team;
+             @error('avatar')
+                 <p style="color: red;">{{ $message }}</p>
+             @enderror
+-            <!-- <img id="previewImage" src="#" alt="Preview" style="display: none; max-width: 200px; margin-top: 10px;"> -->
+             @php
+                 $tempFile = session('temp_file') ?? session('employee_data.avatar');
+                 $avatarPath = $employee->avatar;
+                 $isTempFile = $tempFile && $tempFile !== $avatarPath;
+-                $imageSrc = $isTempFile ? asset('storage/temp/' . $tempFile) : asset('storage/app/' . $avatarPath);
++                $imageSrc = $isTempFile ? asset(TEMP_URL . $tempFile) : asset(APP_URL . $avatarPath);
+             @endphp
+ 
+             @if ($tempFile || $avatarPath)
+@@ -47,21 +45,6 @@ use App\Models\Team;
+ 
+         </div>
+ 
+-        <!-- <script>
+-            document.getElementById('avatar').addEventListener('change', function (event) {
+-                const file = event.target.files[0];
+-                if (file) {
+-                    const reader = new FileReader();
+-                    reader.onload = function (e) {
+-                        const preview = document.getElementById('previewImage');
+-                        preview.src = e.target.result;
+-                        preview.style.display = 'block';
+-                    };
+-                    reader.readAsDataURL(file);
+-                }
+-            });
+-        </script> -->
+-
+         <div class="mb-3">
+             <label for="email" class="form-label">Email:</label>
+             <input type="text" class="form-control" name="email"
+@@ -85,7 +68,7 @@ use App\Models\Team;
+ 
+             @php
+                 $genderOptions = Gender::LIST;
+-                $selectedGender = old('gender', session('employee_data.gender', $employee->gender)); // Tránh lỗi khi session không có giá trị
++                $selectedGender = old('gender', session('employee_data.gender', $employee->gender));
+             @endphp
+ 
+             @foreach ($genderOptions as $value => $label)
+@@ -108,9 +91,9 @@ use App\Models\Team;
+             @php
+                 $birthday = old('birthday', session('employee_data.birthday', $employee->birthday));
+                 if ($birthday instanceof \Carbon\Carbon) {
+-                    $birthday = $birthday->format('Y-m-d'); // Chuyển về định dạng phù hợp nếu là Carbon
++                    $birthday = $birthday->format('Y-m-d');
+                 } elseif (!empty($birthday)) {
+-                    $birthday = date('Y-m-d', strtotime($birthday)); // Nếu là chuỗi, đảm bảo đúng định dạng
++                    $birthday = date('Y-m-d', strtotime($birthday));
+                 }
+             @endphp
+ 
+@@ -139,7 +122,7 @@ use App\Models\Team;
+ 
+             @php
+                 $positionOptions = Position::LIST;
+-                $selectedPosition = old('position', session('employee_data.position',$employee->position)); // Tránh lỗi khi session không có giá trị
++                $selectedPosition = old('position', session('employee_data.position',$employee->position));
+             @endphp
+ 
+             @foreach ($positionOptions as $value => $label)
+@@ -161,7 +144,7 @@ use App\Models\Team;
+ 
+             @php
+                 $statusOptions = Status::LIST;
+-                $selectedStatus = old('status', session('employee_data.status', $employee->status)); // Tránh lỗi khi session không có giá trị
++                $selectedStatus = old('status', session('employee_data.status', $employee->status));
+             @endphp
+ 
+             @foreach ($statusOptions as $value => $label)
+diff --git a/resources/views/dashboard/employee/update_confirm.blade.php b/resources/views/dashboard/employee/update_confirm.blade.php
+index d37a7c1..9c45426 100644
+--- a/resources/views/dashboard/employee/update_confirm.blade.php
++++ b/resources/views/dashboard/employee/update_confirm.blade.php
+@@ -20,17 +20,18 @@ use App\Models\Team;
+ 
+                 @if ($avatarPath)
+                     @if($avatarPath === session('employee_data.old_avatar'))
+-                        <img id="previewImage" src="{{ url('storage/app/' . $avatarPath) }}" alt="{{ $avatarPath }}"
++                        <img src="{{ url(APP_URL . $avatarPath) }}" alt="{{ $avatarPath }}"
+                             style="max-width: 200px; margin-top: 10px;">
+                     @else
+-                        <img id="previewImage" src="{{ url('storage/temp/' . $avatarPath) }}" alt="{{ $avatarPath }}"
++                        <img src="{{ url(TEMP_URL . $avatarPath) }}" alt="{{ $avatarPath }}"
+                             style="max-width: 200px; margin-top: 10px;">
+                     @endif
+                 @else
+-                    <p style="color: red;">No image found</p>
++                    <p style="color: red;">{{ NO_AVATAR }}</p>
+                 @endif
+ 
+                 <input type="hidden" name="avatar" value="{{ session('employee_data.avatar') }}">
++                <input type="hidden" name="old_avatar" value="{{ session('employee_data.old_avatar') }}">
+                 @error('avatar')
+                     <p style="color: red;">{{ $message }}</p>
+                 @enderror
+diff --git a/resources/views/dashboard/home/index.blade.php b/resources/views/dashboard/home/index.blade.php
+deleted file mode 100644
+index ef360c8..0000000
+--- a/resources/views/dashboard/home/index.blade.php
++++ /dev/null
+@@ -1 +0,0 @@
+-dashboard
+\ No newline at end of file
+diff --git a/resources/views/dashboard/layout.blade.php b/resources/views/dashboard/layout.blade.php
+index 4f528d9..e3cce30 100644
+--- a/resources/views/dashboard/layout.blade.php
++++ b/resources/views/dashboard/layout.blade.php
+@@ -13,18 +13,9 @@
+         <div id="page-wrapper" class="gray-bg">
+             @include('dashboard.component.nav')
+             @include($config['template'])
+-            <!-- @include('dashboard.component.footer') -->
+-
+         </div>
+-
+-
+-    </div>
+-
++        
+     </div>
+-
+-    <!-- Mainly scripts -->
+-
+-
+ </body>
+ 
+ </html>
+\ No newline at end of file
+diff --git a/resources/views/dashboard/team/create.blade.php b/resources/views/dashboard/team/create.blade.php
+index 10277fa..02c9a1c 100644
+--- a/resources/views/dashboard/team/create.blade.php
++++ b/resources/views/dashboard/team/create.blade.php
+@@ -1,6 +1,6 @@
+-@if(session('error'))
++@if(session(SESSION_ERROR))
+     <div class="alert alert-danger">
+-        {{ session('error') }}
++        {{ session(SESSION_ERROR) }}
+     </div>
+ @endif
+ 
+diff --git a/resources/views/dashboard/team/index.blade.php b/resources/views/dashboard/team/index.blade.php
+index 67ba371..e7c06ec 100644
+--- a/resources/views/dashboard/team/index.blade.php
++++ b/resources/views/dashboard/team/index.blade.php
+@@ -1,16 +1,16 @@
+ <div class="container mt-5">
+     <h2 class="mb-4">Team - Search</h2>
+-    @if (session('error'))
++    @if (session(SESSION_ERROR))
+         <div class="alert alert-danger">
+-            {{ session('error') }}
++            {{ session(SESSION_ERROR) }}
+         </div>
+     @endif
+-    @if (session('success'))
++    @if (session(SESSION_SUCCESS))
+         <div class="alert alert-primary">
+-            {{ session('success') }}
++            {{ session(SESSION_SUCCESS) }}
+         </div>
+     @endif
+-    <!-- Form tìm kiếm -->
++    <!-- Search form -->
+     <form action="{{ route('team.index') }}" method="GET" class="mb-3">
+         <div class="col-md-4">
+             <label for="name" class="form-label">Name:</label>
+@@ -19,23 +19,21 @@
+             <p style="color: red;">{{ $error ?? '' }}</p>
+ 
+         </div>
+-        <!-- <div class="col-md-4 d-flex align-items-end">
+-        </div> -->
+         <div class="d-flex justify-content-between mt-3 w-100">
+             <button type="submit" class="btn btn-primary me-2">Search</button>
+ 
+             <a href="{{ route('team.index') }}" class="btn btn-secondary">Reset</a>
+         </div>
+     </form>
+-    <!-- Hiển thị kết quả tìm kiếm -->
++    <!-- Result -->
+     <h3>Search result:</h3>
+     @if($teams->isNotEmpty())
+         <table class="table table-bordered">
+             <thead class="table-dark">
+                 <tr>
+-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'id', 'direction' => $newDirection]) }}"
++                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'id', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
+                             class="text-white">ID ↕</a></th>
+-                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'name', 'direction' => $newDirection]) }}"
++                    <th><a href="{{ request()->fullUrlWithQuery(['sortBy' => 'name', 'direction' => $direction === "asc" ? "desc" : "asc"]) }}"
+                             class="text-white">Team ↕</a></th>
+                     <th>Action</th>
+                 </tr>
+@@ -61,7 +59,7 @@
+         @if ($teams->hasPages())
+ 
+             <ul class="pagination">
+-                {{-- Nút First --}}
++                {{-- First --}}
+                 @if ($teams->currentPage() > 1)
+                     <li class="page-item">
+                         <a class="page-link" href="{{ $teams->url(1) }}">First</a>
+@@ -72,7 +70,7 @@
+                     </li>
+                 @endif
+ 
+-                {{-- Nút Prev --}}
++                {{-- Prev --}}
+                 @if($teams->onFirstPage())
+                     <li class="page-item disabled">
+                         <a class="page-link">Prev</a>
+@@ -83,7 +81,7 @@
+                     </li>
+                 @endif
+ 
+-                {{-- Các trang số --}}
++                {{-- Index page --}}
+                 @for ($i = 1; $i <= $teams->lastPage(); $i++)
+                     @if ($i == $teams->currentPage())
+                         <li class="page-item active">
+@@ -96,7 +94,7 @@
+                     @endif
+                 @endfor
+ 
+-                {{-- Nút Next --}}
++                {{-- Next --}}
+                 @if ($teams->hasMorePages())
+                     <li class="page-item">
+                         <a class="page-link" href="{{ $teams->nextPageUrl() }}">Next</a>
+@@ -107,7 +105,7 @@
+                     </li>
+                 @endif
+ 
+-                {{-- Nút Last --}}
++                {{-- Last --}}
+                 @if ($teams->currentPage() < $teams->lastPage())
+                     <li class="page-item">
+                         <a class="page-link" href="{{ $teams->url($teams->lastPage()) }}">Last</a>
+@@ -131,7 +129,7 @@
+             </thead>
+ 
+             <tr>
+-                <td colspan="3">No result found</td>
++                <td colspan="3">{{ NO_RESULT }}</td>
+             </tr>
+         </table>
+     @endif
+diff --git a/resources/views/emails/employee_created.blade.php b/resources/views/emails/employee_created.blade.php
+index 3cc69be..7f0c4ca 100644
+--- a/resources/views/emails/employee_created.blade.php
++++ b/resources/views/emails/employee_created.blade.php
+@@ -8,10 +8,10 @@
+ </head>
+ 
+ <body>
+-    <p>Xin chào {{ $employee['first_name'] . ' ' . $employee['last_name'] }}</p>
+-    <p>Chúng tôi vui mừng thông báo rằng bạn đã được thêm vào hệ thống.</p>
++    <p>Hello {{ $employee['first_name'] . ' ' . $employee['last_name'] }}</p>
++    <p>We are pleased to announce that you have been added to the system.</p>
+     <p>Email: {{ $employee['email'] }}</p>
+-    <p>Chúc bạn một ngày tốt lành!</p>
++    <p>Have a great day!</p>
+ </body>
+ 
+ </html>
+\ No newline at end of file
+diff --git a/routes/web.php b/routes/web.php
+index 4187cb4..671d67c 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -6,66 +6,71 @@ use App\Http\Controllers\TeamController;
+ use App\Http\Middleware\AuthenticationMiddleware;
+ use App\Http\Middleware\ClearSessionTempFileMiddleware;
+ use App\Http\Middleware\ClearTempFileMiddleware;
+-use App\Http\Middleware\LoginMiddleware;
+-use App\Http\Middleware\SingleAccountMiddleware;
+ use App\Http\Middleware\TimeoutMiddleware;
+-use App\Http\Middleware\TimeTrackMiddleware;
+-use Illuminate\Session\Middleware\StartSession;
+ use Illuminate\Support\Facades\Route;
+ 
+-// Route::get('/', function () {
+-//     return view('welcome');
+-// });
+ Route::get('/', [AuthController::class, 'index'])->name('auth.admin')->middleware(
+ );
+ Route::post('login', [AuthController::class, 'login'])->name('auth.login');
+ Route::get('logout', [AuthController::class, 'logout'])->name('auth.logout');
+-
++//emp crud route
+ Route::middleware([
+     AuthenticationMiddleware::class,
+     ClearTempFileMiddleware::class,
+-    TimeTrackMiddleware::class,
+     TimeoutMiddleware::class
+-])->group(function () {
+-    Route::post('team/update/{id}', [TeamController::class, 'update'])->name('team.update');
+-    Route::post('team/create', [TeamController::class, 'create'])->name('team.create');
+-    Route::post('team/delete/{id}', [TeamController::class, 'delete'])->name('team.delete');
+-
+-    Route::post('employee/update/{id}', [EmployeeController::class, 'update'])->name('employee.update');
+-    Route::post('employee/create', [EmployeeController::class, 'create'])->name('employee.create');
+-    Route::post('employee/delete/{id}', [EmployeeController::class, 'delete'])->name('employee.delete');
+-
++])->prefix("team")->group(function () {
++    Route::post('update/{id}', [TeamController::class, 'update'])->name('team.update');
++    Route::post('create', [TeamController::class, 'create'])->name('team.create');
++    Route::post('delete/{id}', [TeamController::class, 'delete'])->name('team.delete');
++});
++//team crud route
++Route::middleware([
++    AuthenticationMiddleware::class,
++    ClearTempFileMiddleware::class,
++    TimeoutMiddleware::class
++])->prefix("employee")->group(function () {
++    Route::post('update/{id}', [EmployeeController::class, 'update'])->name('employee.update');
++    Route::post('create', [EmployeeController::class, 'create'])->name('employee.create');
++    Route::post('delete/{id}', [EmployeeController::class, 'delete'])->name('employee.delete');
+ });
+ 
++//team get template
+ Route::middleware([
+     AuthenticationMiddleware::class,
+     ClearSessionTempFileMiddleware::class
+-])->group(function () {
+-
+-    Route::get('team', [TeamController::class, 'index'])->name('team.index');
++])->prefix("team")->group(function () {
+ 
+-    Route::get('team/edit/{id}', [TeamController::class, 'edit'])->name('team.edit');
+-    Route::post('team/updateConfirm/{id}', [TeamController::class, 'updateConfirm'])->name('team.updateConfirm');
+-    Route::get('team/updateConfirm/{id}', [TeamController::class, 'showUpdateConfirm'])->name('team.updateConfirm');
++    Route::get('', [TeamController::class, 'index'])->name('team.index');
+ 
+-    Route::get('team/create', [TeamController::class, 'getCreateForm'])->name('team.create');
+-    Route::post('team/createConfirm', [TeamController::class, 'createConfirm'])->name('team.createConfirm');
+-    Route::get('team/createConfirm', [TeamController::class, 'showCreateConfirm'])->name('team.showCreateConfirm');
++    Route::get('edit/{id}', [TeamController::class, 'edit'])->name('team.edit');
++    Route::post('updateConfirm/{id}', [TeamController::class, 'updateConfirm'])->name('team.updateConfirm');
++    Route::get('updateConfirm/{id}', [TeamController::class, 'showUpdateConfirm'])->name('team.updateConfirm');
+ 
++    Route::get('create', [TeamController::class, 'getCreateForm'])->name('team.create');
++    Route::post('createConfirm', [TeamController::class, 'createConfirm'])->name('team.createConfirm');
++    Route::get('createConfirm', [TeamController::class, 'showCreateConfirm'])->name('team.showCreateConfirm');
++});
+ 
+-    Route::get('employee', [EmployeeController::class, 'index'])->name('employee.index');
++//employee get template
++Route::middleware([
++    AuthenticationMiddleware::class,
++    ClearSessionTempFileMiddleware::class
++])->prefix("employee")->group(function () {
+ 
+-    Route::post('employee/updateConfirm/{id}', [EmployeeController::class, 'updateConfirm'])->name('employee.updateConfirm');
+-    Route::get('employee/updateConfirm/{id}', [EmployeeController::class, 'showUpdateConfirm'])->name('employee.updateConfirm');
++    Route::get('', [EmployeeController::class, 'index'])->name('employee.index');
+ 
+-    Route::post('employee/createConfirm', [EmployeeController::class, 'createConfirm'])->name('employee.createConfirm');
+-    Route::get('employee/createConfirm', [EmployeeController::class, 'showCreateConfirm'])->name('employee.showCreateConfirm');
+-    Route::post('employee/export', [EmployeeController::class, 'export'])->name('employee.export');
++    Route::post('updateConfirm/{id}', [EmployeeController::class, 'updateConfirm'])->name('employee.updateConfirm');
++    Route::get('updateConfirm/{id}', [EmployeeController::class, 'showUpdateConfirm'])->name('employee.updateConfirm');
+ 
++    Route::post('createConfirm', [EmployeeController::class, 'createConfirm'])->name('employee.createConfirm');
++    Route::get('createConfirm', [EmployeeController::class, 'showCreateConfirm'])->name('employee.showCreateConfirm');
++    Route::post('export', [EmployeeController::class, 'export'])->name('employee.export');
+ });
++
++//employee get create and update template
+ Route::middleware([
+     AuthenticationMiddleware::class,
+-])->group(function () {
+-    Route::get('employee/edit/{id}', [EmployeeController::class, 'edit'])->name('employee.edit');
+-    Route::get('employee/create', [EmployeeController::class, 'getCreateForm'])->name('employee.create');
++])->prefix("employee")->group(function () {
++    Route::get('edit/{id}', [EmployeeController::class, 'edit'])->name('employee.edit');
++    Route::get('create', [EmployeeController::class, 'getCreateForm'])->name('employee.create');
+ });
+\ No newline at end of file

@@ -42,6 +42,10 @@ class TeamController extends Controller
 
             return view('dashboard.layout', compact(['config', 'team']));
         } catch (Exception $e) {
+            \Log::info($e->getMessage(), [
+                'action' => __METHOD__,
+                'id' => $id
+            ]);
             return redirect()->route('team.index')->with(SESSION_ERROR, $e->getMessage());
         }
     }
@@ -101,7 +105,14 @@ class TeamController extends Controller
             $this->teamService->update($id, $request->all());
             return redirect()->route('team.index')->with(SESSION_SUCCESS, UPDATE_SUCCESS);
         } catch (Exception $e) {
-            return redirect()->back()->with(SESSION_ERROR, $e->getMessage());
+            \Log::info(
+                $e->getMessage(),
+                [
+                    'action' => __METHOD__,
+                    'data' => array_merge(['id' => $id], $request->all())
+                ]
+            );
+            return redirect()->route('team.index')->with(SESSION_ERROR, $e->getMessage());
         }
     }
     public function create(Request $request)
@@ -110,7 +121,14 @@ class TeamController extends Controller
             $this->teamService->create($request->all());
             return redirect()->route('team.index')->with(SESSION_SUCCESS, CREATE_SUCCESS);
         } catch (Exception $e) {
-            return redirect()->back()->with(SESSION_ERROR, $e->getMessage());
+            \Log::info(
+                $e->getMessage(),
+                [
+                    'action' => __METHOD__,
+                    'data' => request()->all()
+                ]
+            );
+            return redirect()->route('team.index')->with(SESSION_ERROR, $e->getMessage());
         }
     }
 
@@ -120,6 +138,13 @@ class TeamController extends Controller
             $this->teamService->delete($id);
             return redirect()->route('team.index')->with(SESSION_SUCCESS, DELETE_SUCCESS);
         } catch (Exception $e) {
+            \Log::info(
+                $e->getMessage(),
+                [
+                    'action' => __METHOD__,
+                    'id' => $id
+                ]
+            );
             return redirect()->route('team.index')->with(SESSION_ERROR, $e->getMessage());
         }
     }

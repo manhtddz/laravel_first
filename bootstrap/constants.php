@@ -17,8 +17,11 @@ define("SESSION_ERROR", "error");
 define("SESSION_EMAIL_ERROR", "emailError");
 
 define("UPDATE_SUCCESS", "Update successfully");
+define("UPDATE_FAILED", "Update failed");
 define("CREATE_SUCCESS", "Create successfully");
+define("CREATE_FAILED", "Create failed");
 define("DELETE_SUCCESS", "Delete successfully");
+define("DELETE_FAILED", "Delete failed");
 
 define("WRONG_FORMAT_ID", "That type of id is not accepted");
 define("NOT_EXIST_ERROR", "Data doesn't exist");

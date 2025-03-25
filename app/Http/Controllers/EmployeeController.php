@@ -51,6 +51,10 @@ class EmployeeController extends Controller
 
             return view('dashboard.layout', compact(['config', 'employee', 'teams']));
         } catch (Exception $e) {
+            \Log::info($e->getMessage(), [
+                'action' => __METHOD__,
+                'id' => $id
+            ]);
             return redirect()->route('employee.index')->with(SESSION_ERROR, $e->getMessage());
         }
     }
@@ -117,7 +121,14 @@ class EmployeeController extends Controller
             return redirect()->route('employee.index')->with(SESSION_SUCCESS, UPDATE_SUCCESS);
         } catch (Exception $e) {
             $this->fileService->removeFile($request->avatar);
-            return redirect()->back()->with(SESSION_ERROR, $e->getMessage());
+            \Log::info(
+                $e->getMessage(),
+                [
+                    'action' => __METHOD__,
+                    'data' => array_merge(['id' => $id], $request->all())
+                ]
+            );
+            return redirect()->route('employee.index')->with(SESSION_ERROR, $e->getMessage());
         }
     }
     public function create(Request $request)
@@ -128,7 +139,14 @@ class EmployeeController extends Controller
             return redirect()->route('employee.index')->with(SESSION_SUCCESS, CREATE_SUCCESS);
         } catch (Exception $e) {
             $this->fileService->removeFile($request->avatar);
-            return redirect()->back()->with(SESSION_ERROR, $e->getMessage());
+            \Log::info(
+                $e->getMessage(),
+                [
+                    'action' => __METHOD__,
+                    'data' => request()->all()
+                ]
+            );
+            return redirect()->route('employee.index')->with(SESSION_ERROR, $e->getMessage());
         }
     }
 
@@ -139,7 +157,14 @@ class EmployeeController extends Controller
 
             return redirect()->route('employee.index')->with(SESSION_SUCCESS, DELETE_SUCCESS);
         } catch (Exception $e) {
-            return redirect()->back()->with(SESSION_ERROR, $e->getMessage());
+            \Log::info(
+                $e->getMessage(),
+                [
+                    'action' => __METHOD__,
+                    'id' => $id
+                ]
+            );
+            return redirect()->route('employee.index')->with(SESSION_ERROR, $e->getMessage());
         }
     }
 
