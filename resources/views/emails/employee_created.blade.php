@@ -8,10 +8,10 @@
 </head>
 
 <body>
-    <p>Xin chào {{ $employee['first_name'] . ' ' . $employee['last_name'] }}</p>
-    <p>Chúng tôi vui mừng thông báo rằng bạn đã được thêm vào hệ thống.</p>
+    <p>Hello {{ $employee['first_name'] . ' ' . $employee['last_name'] }}</p>
+    <p>We are pleased to announce that you have been added to the system.</p>
     <p>Email: {{ $employee['email'] }}</p>
-    <p>Chúc bạn một ngày tốt lành!</p>
+    <p>Have a great day!</p>
 </body>
 
 </html>

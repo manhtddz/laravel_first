@@ -2,17 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\ScopedBy;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Database\Eloquent\Model;
 
 class Employee extends Authenticatable
 {
     use HasFactory;
     protected $primaryKey = 'id';
-
     public $timestamps = false;
     protected $table = "m_employees";
     protected $fillable = [

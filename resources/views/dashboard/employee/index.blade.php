@@ -70,7 +70,7 @@
                     <td>{{ $employee->id }}</td>
                     <td>
                         <img src="{{ url(APP_URL . $employee->avatar) }}" width="50" height="50" class="rounded-circle"
-                            title="{{ $employee->avatar ?? "Dont't have avatar" }}">
+                            title="{{ $employee->avatar ?? NO_AVATAR }}">
                     </td>
                     <td>
                         {{ $employee->team->name }}

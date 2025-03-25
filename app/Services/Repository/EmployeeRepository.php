@@ -18,7 +18,7 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
         try {
             return Employee::withoutGlobalScopes()
                 ->where('email', $email)
-                ->where('del_flag', 1)
+                ->where('del_flag', IS_DELETED)
                 ->first();
         } catch (Exception $e) {
             \Log::info($e->getMessage());
@@ -30,7 +30,7 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
         try {
             return Employee::withoutGlobalScopes()
                 ->where('email', $email)
-                ->where('del_flag', 0)
+                ->where('del_flag', IS_NOT_DELETED)
                 ->first();
         } catch (Exception $e) {
             \Log::info($e->getMessage());

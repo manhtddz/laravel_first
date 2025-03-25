@@ -14,7 +14,6 @@
             <div class="col-md-4">
                 <h3 class="text-center">Login</h3>
 
-                <!-- Hiển thị lỗi -->
                 @if (session(SESSION_ERROR))
                     <div class="alert alert-danger">
                         {{ session(SESSION_ERROR) }}
@@ -27,7 +26,6 @@
                         <label for="email" class="form-label">Email</label>
                         <input type="text" class="form-control" id="email" name="email"
                             value="{{ old('email', session('login_email')) }}">
-                        <!-- Hiển thị lỗi -->
                         @if ($errors->has('email'))
                             <div class="alert alert-danger">
                                 {{ $errors->first('email') }}

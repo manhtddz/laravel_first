@@ -16,7 +16,7 @@ class TeamFactory extends Factory
             'name' => $this->faker->company,
             'ins_id' => 1,
             'upd_id' => null,
-            'del_flag' => '0',
+            'del_flag' => IS_NOT_DELETED,
         ];
     }
 }

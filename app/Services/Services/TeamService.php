@@ -3,7 +3,6 @@
 namespace App\Services\Services;
 
 use App\Http\Requests\TeamCreateRequest;
-use App\Http\Requests\TeamSearchRequest;
 use App\Http\Requests\TeamUpdateRequest;
 use App\Services\Interfaces\ITeamRepository;
 use App\Services\Repository\TeamRepository;

@@ -3,15 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\EmployeeCreateRequest;
-use App\Http\Requests\EmployeeSearchRequest;
 use App\Http\Requests\EmployeeUpdateRequest;
-use App\Jobs\SendEmployeeEmailJob;
 use App\Services\Services\EmployeeService;
 use App\Services\Services\FileService;
 use App\Services\Services\TeamService;
 use Auth;
 use Exception;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 class EmployeeController extends Controller
 {

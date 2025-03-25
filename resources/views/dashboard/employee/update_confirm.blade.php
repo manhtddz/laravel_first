@@ -27,7 +27,7 @@ use App\Models\Team;
                             style="max-width: 200px; margin-top: 10px;">
                     @endif
                 @else
-                    <p style="color: red;">No image found</p>
+                    <p style="color: red;">{{ NO_AVATAR }}</p>
                 @endif
 
                 <input type="hidden" name="avatar" value="{{ session('employee_data.avatar') }}">

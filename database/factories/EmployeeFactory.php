@@ -38,7 +38,7 @@ class EmployeeFactory extends Factory
             'type_of_work' => $this->faker->randomElement(['1', '2', '3', '4']),
             'ins_id' => 1,
             'upd_id' => null,
-            'del_flag' => '0',
+            'del_flag' => IS_NOT_DELETED,
         ];
     }
 

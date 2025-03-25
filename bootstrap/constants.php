@@ -29,5 +29,6 @@ define("TEMP_URL", "storage/temp/");
 define("APP_URL", "storage/app/");
 
 define("NO_RESULT", "No result found");
+define("NO_AVATAR", "No avatar found");
 
 define("EMAIL_TITLE", 'Email for employee');

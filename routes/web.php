@@ -6,16 +6,9 @@ use App\Http\Controllers\TeamController;
 use App\Http\Middleware\AuthenticationMiddleware;
 use App\Http\Middleware\ClearSessionTempFileMiddleware;
 use App\Http\Middleware\ClearTempFileMiddleware;
-use App\Http\Middleware\LoginMiddleware;
-use App\Http\Middleware\SingleAccountMiddleware;
 use App\Http\Middleware\TimeoutMiddleware;
-use App\Http\Middleware\TimeTrackMiddleware;
-use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 
-// Route::get('/', function () {
-//     return view('welcome');
-// });
 Route::get('/', [AuthController::class, 'index'])->name('auth.admin')->middleware(
 );
 Route::post('login', [AuthController::class, 'login'])->name('auth.login');
