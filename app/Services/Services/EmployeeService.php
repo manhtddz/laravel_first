@@ -2,6 +2,8 @@
 
 namespace App\Services\Services;
 
+use App\Http\Requests\EmployeeCreateRequest;
+use App\Http\Requests\EmployeeUpdateRequest;
 use App\Jobs\SendEmployeeEmailJob;
 use App\Models\Employee;
 use App\Services\Interfaces\IEmployeeRepository;
@@ -55,21 +57,32 @@ class EmployeeService
     }
     public function search(array $request, $sort = null, $direction = "asc")
     {
+        $filtered = array_filter(
+            $request,
+            fn($value) => $value !== "" && $value !== null && $value != 0
+        );
+
         $employees = $this->findAllPaging();
-        if (!empty($request)) { // Call service when search data is not empty
+
+        if (!empty($filtered)) { // Call service when search data is not empty
             $employees = $this->employeeRepository
-                ->searchPaging(ITEM_PER_PAGE, $request, $sort, $direction);
+                ->searchPaging(ITEM_PER_PAGE, $filtered, $sort, $direction);
         }
 
         return $employees;
     }
     public function findAllSearchedId(array $request, $sort, $direction)
     {
+        $filtered = array_filter(
+            $request,
+            fn($value) => $value !== "" && $value !== null && $value != 0
+        );
+
         $employeeIds = $this->findAllEmployeeId();
 
         if (!empty($request)) { // Call service when search data is not empty
             $employeeIds = $this->employeeRepository
-                ->findAllSearchedId($request, $sort, $direction);
+                ->findAllSearchedId($filtered, $sort, $direction);
         }
 
         return $employeeIds;
@@ -109,6 +122,42 @@ class EmployeeService
             throw new Exception(NOT_EXIST_ERROR);
         }
         return $this->employeeRepository->delete($id);
+    }
+    public function prepareConfirmForUpdate($id, EmployeeUpdateRequest $request)
+    {
+        $validatedData = $request->validated();
+        if ($request->hasFile('avatar')) {
+            session()->forget('temp_file');
+            $filePath = $this->fileService->uploadTempFileAndDeleteTempFile(
+                $request->file('avatar'),
+                $request->uploaded_avatar
+            );
+            $validatedData['avatar'] = $filePath;
+        } else {
+            $validatedData['avatar'] = $request->uploaded_avatar;
+        }
+        $validatedData['old_avatar'] = $request->old_avatar;
+        $validatedData['id'] = $id;
+
+        session()->flash('employee_data', $validatedData);
+    }
+
+    public function prepareConfirmForCreate(EmployeeCreateRequest $request)
+    {
+        $validatedData = $request->validated();
+        if ($request->hasFile('avatar')) {
+            session()->forget('temp_file');
+            $filePath = $this->fileService
+                ->uploadTempFileAndDeleteTempFile(
+                    $request->file('avatar'),
+                    $request->old_avatar
+                );
+            $validatedData['avatar'] = $filePath;
+        } else {
+            $validatedData['avatar'] = $request->old_avatar;
+        }
+
+        session()->flash('employee_data', $validatedData);
     }
 
     public function exportToCSV(array $ids)

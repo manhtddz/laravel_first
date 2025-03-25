@@ -22,6 +22,7 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
                 ->first();
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
     }
     public function findActiveEmployeeByEmail($email)
@@ -33,6 +34,7 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
                 ->first();
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
     }
     public function findAllEmployeeId()
@@ -41,6 +43,7 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
             return Employee::all()->pluck('id')->toArray();
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
     }
     public function findAllSearchedId(array $requestData, $sort = null, $direction = 'asc')
@@ -77,6 +80,7 @@ class EmployeeRepository extends BaseRepository implements IEmployeeRepository
 
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
 
     }

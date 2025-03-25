@@ -26,22 +26,17 @@ class EmployeeController extends Controller
     }
     public function index(Request $request)
     {
-        //Intial value
+        //Initial value
         $teams = $this->teamService->findAll();
         $sortBy = $request->input('sortBy');
         $direction = $request->input('direction', 'asc');
         $config = $this->config();
 
-        $filtered = array_filter(
-            $request->all(),
-            fn($value) => $value !== "" && $value !== null && $value != 0
-        );
-
         $employees = $this->employeeService
-            ->search($filtered, $sortBy, $direction)
+            ->search($request->all(), $sortBy, $direction)
             ->appends($request->query());
         $employeeIds = $this->employeeService
-            ->findAllSearchedId($filtered, $sortBy, $direction);
+            ->findAllSearchedId($request->all(), $sortBy, $direction);
 
         return view(
             'dashboard.layout',
@@ -76,21 +71,7 @@ class EmployeeController extends Controller
     public function updateConfirm($id, EmployeeUpdateRequest $request)
     {
         //prepare data
-        $validatedData = $request->validated();
-        if ($request->hasFile('avatar')) {
-            session()->forget('temp_file');
-            $filePath = $this->fileService->uploadTempFileAndDeleteTempFile(
-                $request->file('avatar'),
-                $request->uploaded_avatar
-            );
-            $validatedData['avatar'] = $filePath;
-        } else {
-            $validatedData['avatar'] = $request->uploaded_avatar;
-        }
-        $validatedData['old_avatar'] = $request->old_avatar;
-        $validatedData['id'] = $id;
-
-        session()->flash('employee_data', $validatedData);
+        $this->employeeService->prepareConfirmForUpdate($id, $request);
 
         $config = $this->config();
         $config['template'] = "dashboard.employee.update_confirm";
@@ -112,20 +93,7 @@ class EmployeeController extends Controller
     public function createConfirm(EmployeeCreateRequest $request)
     {
         //prepare data
-        $validatedData = $request->validated();
-        if ($request->hasFile('avatar')) {
-            session()->forget('temp_file');
-            $filePath = $this->fileService
-                ->uploadTempFileAndDeleteTempFile(
-                    $request->file('avatar'),
-                    $request->old_avatar
-                );
-            $validatedData['avatar'] = $filePath;
-        } else {
-            $validatedData['avatar'] = $request->old_avatar;
-        }
-
-        session()->flash('employee_data', $validatedData);
+        $this->employeeService->prepareConfirmForCreate($request);
 
         $config = $this->config();
         $config['template'] = "dashboard.employee.create_confirm";

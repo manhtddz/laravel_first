@@ -21,6 +21,7 @@ abstract class BaseRepository implements IRepository
             return $this->model::find($id);
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
     }
     public function findAll()
@@ -29,6 +30,7 @@ abstract class BaseRepository implements IRepository
             return $this->model::all();
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
     }
     public function findAllPaging($amount)
@@ -37,6 +39,7 @@ abstract class BaseRepository implements IRepository
             return $this->model::paginate($amount);
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
     }
     public function create(array $requestData)
@@ -46,6 +49,7 @@ abstract class BaseRepository implements IRepository
             $this->model::create($requestData);
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
     }
     public function update($id, array $requestData)
@@ -56,6 +60,7 @@ abstract class BaseRepository implements IRepository
             $item->update($requestData);
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
     }
     public function delete($id)
@@ -65,6 +70,7 @@ abstract class BaseRepository implements IRepository
             $item->delete();
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
     }
     public function searchPaging($amount, array $requestData, $sort = null, $direction = 'asc')
@@ -105,6 +111,7 @@ abstract class BaseRepository implements IRepository
 
         } catch (Exception $e) {
             \Log::info($e->getMessage());
+            return null;
         }
 
     }

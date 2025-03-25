@@ -38,11 +38,16 @@ class TeamService
     }
     public function search(array $request, $sort, $direction)
     {
+        $filtered = array_filter(
+            $request,
+            fn($value) => $value !== "" && $value !== null && $value != 0
+        );
+
         $teams = $this->findAllPaging();
 
-        if (!empty($request)) { // Call service when search data is not empty
+        if (!empty($filtered)) { // Call service when search data is not empty
             $teams = $this->teamRepository
-                ->searchPaging(ITEM_PER_PAGE, $request, $sort, $direction);
+                ->searchPaging(ITEM_PER_PAGE, $filtered, $sort, $direction);
         }
 
         return $teams;
@@ -66,5 +71,17 @@ class TeamService
             throw new Exception(NOT_EXIST_ERROR);
         }
         return $this->teamRepository->delete($id);
+    }
+
+    public function prepareConfirmForUpdate(TeamUpdateRequest $request){
+        $validatedData = $request->validated();
+
+        session()->flash('team_data', $validatedData);
+    }
+
+    public function prepareConfirmForCreate(TeamCreateRequest $request){
+        $validatedData = $request->validated();
+
+        session()->flash('team_data', $validatedData);
     }
 }

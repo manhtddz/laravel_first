@@ -23,13 +23,8 @@ class TeamController extends Controller
         $direction = $request->input('direction', 'asc');
         $config = $this->config();
 
-        $filtered = array_filter(
-            $request->all(),
-            fn($value) => $value !== "" && $value !== null && $value != 0
-        );
-
         $teams = $this->teamService
-            ->search($filtered, $sortBy, $direction)
+            ->search($request->all(), $sortBy, $direction)
             ->appends($request->query());
 
         return view(
@@ -60,9 +55,7 @@ class TeamController extends Controller
 
     public function updateConfirm($id, TeamUpdateRequest $request)
     {
-        $validatedData = $request->validated();
-
-        session()->flash('team_data', $validatedData);
+        $this->teamService->prepareConfirmForUpdate($request);
 
         $config = $this->config();
         $config['template'] = "dashboard.team.update_confirm";
@@ -71,7 +64,6 @@ class TeamController extends Controller
     }
     public function showUpdateConfirm()
     {
-
         // Check exists data
         if (!session()->has('team_data')) {
             return redirect()->route('team.index')->with(SESSION_ERROR, ERROR_ACCESS_DENIED);
@@ -84,9 +76,7 @@ class TeamController extends Controller
     }
     public function createConfirm(TeamCreateRequest $request)
     {
-        $validatedData = $request->validated();
-
-        session()->flash('team_data', $validatedData);
+        $this->teamService->prepareConfirmForCreate($request);
 
         $config = $this->config();
         $config['template'] = "dashboard.team.create_confirm";
